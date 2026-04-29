@@ -1,450 +1,345 @@
-import React, { useEffect, useState, useMemo, useRef } from "react"
-import { collection, getDocs } from "firebase/firestore"
-import { db } from "../lib/firebase"
-import jsPDF from 'jspdf'
-import html2canvas from 'html2canvas'
-import {
-    Calendar,
-    DollarSign,
-    Package,
-    ArrowUp,
-    ArrowDown,
-    Download,
-    Store,
-    ShoppingCart,
-    Clock,
-    BarChart3
-} from "lucide-react"
+import React, { useEffect, useState, useMemo, useRef } from "react";
+import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import { db } from "../lib/firebase";
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+import { 
+    Calendar, DollarSign, ShoppingCart, CreditCard, 
+    Download, Clock, Search, ArrowUpDown 
+} from "lucide-react";
 
-// --- Tipagens (inalteradas) ---
 interface SaleData {
     id: string;
-    items: { saleQty: number }[];
-    timestamp: any; // Firebase Timestamp
+    items: any[];
+    timestamp: any;
     total: number;
     status: string;
     store: string;
+    paymentMethod?: string;
 }
 
-// ⭐️ CONSTANTE DE EXCLUSÃO (VERIFIQUE ESTE VALOR DUAS VEZES!)
-const EXCLUDED_STORE_EMAIL = "minha-loja@exemplo.com"; 
+const EXCLUDED_STORE_EMAIL = "minha-loja@exemplo.com";
 const EXCLUDED_STORE_NORMALIZED = EXCLUDED_STORE_EMAIL.toLowerCase().trim();
 
-// --- Funções Auxiliares (inalteradas) ---
-const formatCurrency = (value: number) =>
-    value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
-
-const periods = [
-    { id: "day", name: "Hoje" },
-    { id: "week", name: "Semana" },
-    { id: "month", name: "Mês" },
-    { id: "year", name: "Ano" }
-]
-
-// Lista de lojas VISÍVEIS no filtro. 
-const ALL_STORES = [
-    { id: "kluivert@solucell.com", name: "Solucell Gávea" }
-]
-
-// ... (MetricCard e Funções de Data/Cálculo inalterados) ...
-const getPeriodStart = (period: string): Date => {
-    const now = new Date()
-    switch (period) {
-        case "day":
-            return new Date(now.getFullYear(), now.getMonth(), now.getDate())
-        case "week": {
-            const dayOfWeek = now.getDay() 
-            const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)
-            return new Date(now.getFullYear(), now.getMonth(), diff)
-        }
-        case "month":
-            return new Date(now.getFullYear(), now.getMonth(), 1)
-        case "year":
-            return new Date(now.getFullYear(), 0, 1)
-        default:
-            return new Date(0)
-    }
-}
-
-const getPreviousPeriodStart = (period: string, currentStart: Date): Date => {
-    const prev = new Date(currentStart);
-    switch (period) {
-        case "day":
-            prev.setDate(prev.getDate() - 1);
-            break;
-        case "week":
-            prev.setDate(prev.getDate() - 7);
-            break;
-        case "month":
-            prev.setMonth(prev.getMonth() - 1);
-            break;
-        case "year":
-            prev.setFullYear(prev.getFullYear() - 1);
-            break;
-    }
-    return prev;
-}
-
-const calculateMetrics = (salesArray: SaleData[]) => {
-    const totalRevenue = salesArray.reduce((acc, sale) => acc + sale.total, 0)
-    const totalSalesCount = salesArray.length
-    const totalItemsSold = salesArray.reduce((acc, sale) =>
-        acc + sale.items.reduce((itAcc: number, item: any) => itAcc + (item.saleQty || 0), 0)
-        , 0)
-    const avgTicket = totalSalesCount ? totalRevenue / totalSalesCount : 0
-    return { totalRevenue, totalSalesCount, totalItemsSold, avgTicket }
-}
-
-const calculateGrowth = (current: number, previous: number): number => {
-    if (previous === 0) return current > 0 ? 100 : 0; 
-    return ((current - previous) / previous) * 100;
-}
-
-
-interface MetricCardProps {
-    icon: React.ReactNode
-    title: string
-    value: string | number
-    growth: number
-    iconColor: string
-    isMain?: boolean
-}
-
-const MetricCard: React.FC<MetricCardProps> = ({ icon, title, value, growth, iconColor, isMain = false }) => {
-    const isPositive = growth >= 0
-    const growthColor = isPositive ? "text-emerald-400" : "text-red-400"
-    const GrowthIcon = isPositive ? ArrowUp : ArrowDown
-
-    const cardClasses = isMain
-        ? "bg-emerald-800/30 border-emerald-600/50 col-span-full md:col-span-2 shadow-lg shadow-emerald-900/40 p-5"
-        : "bg-slate-800/50 border-slate-700/50 shadow-md shadow-black/20 p-5";
-
-    return (
-        <div className={`rounded-xl flex flex-col gap-2 border ${cardClasses} transition-all duration-300 hover:scale-[1.01] hover:shadow-xl`}>
-            <div className="flex justify-between items-center">
-                <div className={`w-8 h-8 flex items-center justify-center rounded-lg ${iconColor} p-1.5`}>
-                    {icon}
-                </div>
-                <span className={`text-xs flex items-center gap-1 font-medium ${growthColor} bg-slate-700/50 px-2 py-0.5 rounded-full`}>
-                    <GrowthIcon className="w-3 h-3" />
-                    {Math.abs(growth).toFixed(1)}%
-                </span>
-            </div>
-            <h3 className="text-slate-400 text-xs font-medium uppercase tracking-wider">{title}</h3>
-            <p className={`text-white font-extrabold ${isMain ? "text-2xl" : "text-xl"}`}>
-                {value}
-            </p>
-
-        </div>
-    )
-}
-
-// --- Componente Principal ---
 export default function Reports() {
-    const [sales, setSales] = useState<SaleData[]>([])
-    const [loading, setLoading] = useState(true)
-    const [period, setPeriod] = useState("month") 
-    const [storeFilter, setStoreFilter] = useState("all")
-    const reportRef = useRef<HTMLDivElement>(null)
+    const [sales, setSales] = useState<SaleData[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [period, setPeriod] = useState<"day" | "week" | "month" | "year">("day");
+    const [searchTerm, setSearchTerm] = useState("");
+    const [paymentFilter, setPaymentFilter] = useState("all");
+    const reportRef = useRef<HTMLDivElement>(null);
 
-    // --- Lógica de Fetching (inalterada) ---
+    // Buscar todas as vendas
     useEffect(() => {
         async function fetchSales() {
-            setLoading(true)
+            setLoading(true);
             try {
-                const salesSnapshot = await getDocs(collection(db, "sales"))
-                const salesData: SaleData[] = salesSnapshot.docs.map(doc => {
-                    const data = doc.data()
-                    return {
-                        id: doc.id,
-                        items: data.items || [],
-                        timestamp: data.timestamp,
-                        total: Number(data.total) || 0,
-                        status: data.status || "active", 
-                        // 💡 TRATAMENTO EXTRA: Remove espaços em branco do campo 'store' (apenas por segurança)
-                        store: (data.store || "unknown").trim(), 
-                    } as SaleData
-                })
-                setSales(salesData)
+                const q = query(collection(db, "sales"), orderBy("timestamp", "desc"));
+                const snapshot = await getDocs(q);
+                
+                const data = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                    total: Number(doc.data().total) || 0,
+                    store: (doc.data().store || "").trim()
+                } as SaleData));
+                
+                setSales(data);
             } catch (error) {
-                console.error("Erro ao buscar vendas:", error)
+                console.error("Erro ao buscar vendas:", error);
             } finally {
-                setLoading(false)
+                setLoading(false);
             }
         }
-        fetchSales()
-    }, [])
+        fetchSales();
+    }, []);
 
-    // ** Função de Exclusão Reutilizável E NORMALIZADA **
-    const isSaleExcluded = (sale: SaleData) => {
-        // 1. Verifica se a venda está ativa/concluída
-        const isCompletedOrActive = (
-            sale.status === "completed" || 
-            sale.status === "active" ||
-            !sale.status 
-        );
-        
-        // ⭐️ 2. VERIFICAÇÃO NORMALIZADA: Converte para minúsculas e remove espaços para comparação robusta
-        const saleStoreNormalized = sale.store.toLowerCase().trim();
-        const isExcludedStore = saleStoreNormalized === EXCLUDED_STORE_NORMALIZED;
-        
-        // Retorna TRUE se a venda deve ser INCLUÍDA (ou seja, está ativa E NÃO é a loja excluída)
-        return isCompletedOrActive && !isExcludedStore;
-    }
+    const isSaleValid = (sale: SaleData) => {
+        const status = sale.status?.toLowerCase();
+        const isCompleted = !status || status === "completed" || status === "active";
+        const isNotExcluded = sale.store.toLowerCase().trim() !== EXCLUDED_STORE_NORMALIZED;
+        return isCompleted && isNotExcluded;
+    };
 
-
-    // --- Lógica de Filtro e Cálculo de Métricas (usando isSaleExcluded) ---
-    
-    const periodStart = useMemo(() => getPeriodStart(period), [period]);
-    const previousPeriodStart = useMemo(() => getPreviousPeriodStart(period, periodStart), [period, periodStart]);
-
-
-    // Filtro para Vendas ATIVAS/CONCLUÍDAS no Período ATUAL
+    // Filtro principal com período funcionando
     const filteredSales = useMemo(() => {
+        const now = new Date();
+        let startDate = new Date();
+
+        switch (period) {
+            case "day":
+                startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                break;
+            case "week":
+                startDate.setDate(now.getDate() - 7);
+                break;
+            case "month":
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                break;
+            case "year":
+                startDate = new Date(now.getFullYear(), 0, 1);
+                break;
+        }
+
         return sales.filter(sale => {
-            const saleDate = sale.timestamp?.toDate()
-            
-            const isWithinCurrentPeriod = saleDate && saleDate >= periodStart
-            
-            // Filtra pela loja selecionada OU todas
-            const isMatchingStore = storeFilter === "all" || sale.store === storeFilter
-            
-            // Aplica a regra de inclusão e a regra de loja selecionada
-            return isWithinCurrentPeriod && isSaleExcluded(sale) && isMatchingStore;
-        })
-    }, [sales, periodStart, storeFilter])
+            const saleDate = sale.timestamp?.toDate();
+            if (!saleDate || saleDate < startDate) return false;
+            if (!isSaleValid(sale)) return false;
 
+            // Busca
+            const searchLower = searchTerm.toLowerCase();
+            const matchesSearch = 
+                sale.id.toLowerCase().includes(searchLower) ||
+                sale.items?.some((item: any) => 
+                    item.name?.toLowerCase().includes(searchLower)
+                );
 
-    // Filtro para Vendas ATIVAS/CONCLUÍDAS no Período ANTERIOR (para cálculo de Growth)
-    const previousFilteredSales = useMemo(() => {
-        const previousEnd = periodStart; 
+            // Pagamento
+            const matchesPayment = 
+                paymentFilter === "all" || 
+                (sale.paymentMethod || "").toUpperCase() === paymentFilter.toUpperCase();
+
+            return matchesSearch && matchesPayment;
+        });
+    }, [sales, period, searchTerm, paymentFilter]);
+
+    const totalRevenue = filteredSales.reduce((acc, s) => acc + s.total, 0);
+    const totalSales = filteredSales.length;
+    const avgTicket = totalSales > 0 ? totalRevenue / totalSales : 0;
+
+    const getPaymentBadge = (method?: string) => {
+        const m = (method || "").toUpperCase();
+        if (m.includes("PIX")) return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+        if (m.includes("CARTÃO") || m.includes("CARTAO")) return "bg-blue-500/10 text-blue-400 border-blue-500/30";
+        if (m.includes("DINHEIRO")) return "bg-amber-500/10 text-amber-400 border-amber-500/30";
+        if (m.includes("FIADO")) return "bg-purple-500/10 text-purple-400 border-purple-500/30";
+        return "bg-slate-700 text-slate-400 border-slate-600";
+    };
+
+    const exportToPDF = async () => {
+        if (!reportRef.current) return;
+        const canvas = await html2canvas(reportRef.current, { scale: 2 });
+        const imgData = canvas.toDataURL("image/png");
+        const pdf = new jsPDF("p", "mm", "a4");
         
-        return sales.filter(sale => {
-            const saleDate = sale.timestamp?.toDate()
-            
-            const isWithinPreviousPeriod = saleDate && saleDate >= previousPeriodStart && saleDate < previousEnd;
-            
-            const isMatchingStore = storeFilter === "all" || sale.store === storeFilter
-            
-            // Aplica a regra de inclusão e a regra de loja selecionada
-            return isWithinPreviousPeriod && isSaleExcluded(sale) && isMatchingStore;
-        })
-    }, [sales, previousPeriodStart, periodStart, storeFilter]);
-    
-    
-    // --- Cálculo das Métricas (ATUAL vs ANTERIOR) ---
-    const currentMetrics = calculateMetrics(filteredSales);
-    const previousMetrics = calculateMetrics(previousFilteredSales);
+        pdf.setFontSize(18);
+        pdf.text("SOLUCELL.", 14, 20);
+        pdf.setFontSize(11);
+        pdf.text("Relatório Administrativo de Vendas", 14, 28);
+        
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const imgProps = pdf.getImageProperties(imgData);
+        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+        
+        pdf.addImage(imgData, "PNG", 5, 35, pdfWidth - 10, pdfHeight);
+        pdf.save(`relatorio_vendas_${period}_${new Date().toISOString().slice(0,10)}.pdf`);
+    };
 
-    const metricsWithGrowth = useMemo(() => ({
-        revenueGrowth: calculateGrowth(currentMetrics.totalRevenue, previousMetrics.totalRevenue),
-        salesCountGrowth: calculateGrowth(currentMetrics.totalSalesCount, previousMetrics.totalSalesCount),
-        itemsSoldGrowth: calculateGrowth(currentMetrics.totalItemsSold, previousMetrics.totalItemsSold),
-        avgTicketGrowth: calculateGrowth(currentMetrics.avgTicket, previousMetrics.avgTicket),
-    }), [currentMetrics, previousMetrics]);
-    
-    // 8. useMemo (Métricas por Loja A e B)
-    const { metricsStoreA, metricsStoreB } = useMemo(() => {
-        // Esta função garante que as vendas de outras lojas (incluindo a excluída) não sejam contadas
-        const filterByPeriodAndActive = (s: SaleData, targetStoreId: string) => (
-            s.timestamp?.toDate() >= periodStart && 
-            isSaleExcluded(s) &&
-            s.store === targetStoreId
-        );
-
-        const STORE_A_ID = "jardimdagloria@solucell.com" 
-        const STORE_B_ID = "vilaesportiva@solucell.com" 
-
-        const salesStoreA = sales.filter(s => filterByPeriodAndActive(s, STORE_A_ID))
-        const salesStoreB = sales.filter(s => filterByPeriodAndActive(s, STORE_B_ID))
-
-        return {
-            metricsStoreA: calculateMetrics(salesStoreA),
-            metricsStoreB: calculateMetrics(salesStoreB),
-        }
-    }, [sales, periodStart])
-
-
-    // --- Lógica de Exportação PDF (inalterada) ---
-    const handleExportPDF = async () => {
-        if (!reportRef.current) return
-
-        const exportButton = reportRef.current.querySelector('.export-button-hide')
-        if (exportButton) exportButton.classList.add('hidden')
-
-        try {
-            const canvas = await html2canvas(reportRef.current, { scale: 2 })
-            const imgData = canvas.toDataURL('image/png')
-            const pdf = new jsPDF('p', 'mm', 'a4')
-            const pdfWidth = pdf.internal.pageSize.getWidth()
-            const imgProps = pdf.getImageProperties(imgData)
-
-            pdf.setFontSize(16)
-            pdf.text("Relatório de Vendas - Solucell", 14, 15)
-            pdf.setFontSize(10)
-            const periodName = periods.find(p => p.id === period)?.name || "Período"
-            const storeName = ALL_STORES.find(s => s.id === storeFilter)?.name || "Todas as Lojas"
-            pdf.text(`Período: ${periodName} | Loja: ${storeName}`, 14, 23)
-
-            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width
-            pdf.addImage(imgData, "PNG", 5, 28, pdfWidth - 10, pdfHeight * ((pdfWidth - 10) / imgProps.width))
-            pdf.save(`Relatorio_Vendas_${storeFilter}_${period}.pdf`)
-        } catch (error) {
-            console.error("Erro ao exportar PDF:", error)
-        } finally {
-            if (exportButton) exportButton.classList.remove('hidden')
-        }
+    if (loading) {
+        return <div className="min-h-screen bg-[#020617] flex items-center justify-center text-white">Carregando relatório...</div>;
     }
 
-    if (loading) return <p className="text-white p-8">Carregando dados...</p>
-
-    // --- Estrutura da Tela (inalterada) ---
     return (
-        <div ref={reportRef} className="p-4 sm:p-8 bg-slate-950 min-h-screen space-y-8 font-sans">
-            <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800 pb-5">
+        <div ref={reportRef} className="p-4 md:p-10 bg-[#020617] min-h-screen space-y-8 text-slate-300">
+            {/* Header */}
+            <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div>
-                    <h1 className="text-2xl font-semibold text-white mb-1 flex items-center gap-2"><BarChart3 className="w-6 h-6 text-blue-400"/> Painel de Vendas Solucell</h1>
-                    <p className="text-slate-400 text-sm">Análise de desempenho consolidada por período e loja.</p>
+                    <h1 className="text-4xl font-black text-white italic tracking-tighter">
+                        SOLUCELL<span className="text-blue-600">.</span>
+                    </h1>
+                    <p className="text-blue-500 text-[10px] font-black uppercase tracking-[0.3em] mt-2 flex items-center gap-2">
+                        <span className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-blue-500">✓</span>
+                        Relatórios Administrativos
+                    </p>
                 </div>
 
                 <button
-                    onClick={handleExportPDF}
-                    className="export-button-hide flex items-center gap-2 px-5 py-2 mt-4 sm:mt-0 bg-emerald-600 rounded-full hover:bg-emerald-700 text-white font-semibold text-sm shadow-lg shadow-emerald-700/30 transition-all duration-300"
+                    onClick={exportToPDF}
+                    className="no-export flex items-center gap-3 px-8 py-4 bg-white text-black rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all"
                 >
-                    <Download className="w-4 h-4" />
-                    Exportar Relatório
+                    <Download size={16} />
+                    Exportar PDF
                 </button>
             </header>
 
-            {/* --- Filtros de Período e Loja --- */}
-            <section className="bg-slate-900 p-5 rounded-xl border border-slate-800">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    {/* Filtro de Período */}
-                    <div>
-                        <p className="text-slate-400 mb-2 font-semibold text-sm flex items-center gap-2"><Calendar className="w-4 h-4" /> Selecionar Período</p>
-                        <div className="flex flex-wrap gap-2">
-                            {periods.map(p => (
-                                <button
-                                    key={p.id}
-                                    onClick={() => setPeriod(p.id)}
-                                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${period === p.id ? "bg-blue-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-slate-600"
-                                        }`}
-                                >
-                                    {p.name}
-                                </button>
-                            ))}
-                        </div>
+            {/* Filtros */}
+            <section className="no-export bg-slate-900/40 border border-slate-800/50 p-6 rounded-[24px] grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Períodos Rápidos */}
+                <div className="space-y-3">
+                    <p className="text-[10px] font-black uppercase text-slate-500">Períodos Rápidos</p>
+                    <div className="flex flex-wrap gap-2">
+                        {[
+                            { label: "Hoje", value: "day" },
+                            { label: "Semana", value: "week" },
+                            { label: "Mês Atual", value: "month" },
+                            { label: "Ano", value: "year" }
+                        ].map(({ label, value }) => (
+                            <button
+                                key={value}
+                                onClick={() => setPeriod(value as any)}
+                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${
+                                    period === value ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-500 hover:bg-slate-700"
+                                }`}
+                            >
+                                {label}
+                            </button>
+                        ))}
                     </div>
+                </div>
 
-                    {/* Filtro por Loja */}
-                    <div>
-                        <p className="text-slate-400 mb-2 font-semibold text-sm flex items-center gap-2"><Store className="w-4 h-4" /> Selecionar Loja</p>
-                        <div className="flex flex-wrap gap-2">
-                            {ALL_STORES.map(s => (
-                                <button
-                                    key={s.id}
-                                    onClick={() => setStoreFilter(s.id)}
-                                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${storeFilter === s.id ? "bg-purple-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-slate-600"
-                                        }`}
-                                >
-                                    {s.name}
-                                </button>
-                            ))}
+                {/* Mês Específico */}
+                <div className="space-y-3">
+                    <p className="text-[10px] font-black uppercase text-slate-500">Filtrar por Mês Específico</p>
+                    <div className="flex gap-2">
+                        <div className="relative flex-1">
+                            <select className="w-full bg-slate-800 border-none rounded-xl px-4 py-2.5 text-[10px] font-black text-white outline-none appearance-none cursor-pointer">
+                                {Array.from({ length: 12 }, (_, i) => (
+                                    <option key={i} value={i}>
+                                        {new Date(2026, i).toLocaleString('pt-BR', { month: 'long' }).toUpperCase()}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
+                        <input 
+                            type="number" 
+                            defaultValue="2026" 
+                            className="w-24 bg-slate-800 border-none rounded-xl px-4 py-2 text-[10px] font-black text-white outline-none" 
+                        />
+                    </div>
+                </div>
+
+                {/* Dia Específico */}
+                <div className="space-y-3">
+                    <p className="text-[10px] font-black uppercase text-slate-500">Dia Específico</p>
+                    <div className="relative">
+                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
+                        <input 
+                            type="date" 
+                            className="w-full bg-slate-800 border-none rounded-xl pl-10 pr-4 py-2.5 text-[10px] font-black text-white outline-none" 
+                        />
                     </div>
                 </div>
             </section>
 
-            {/* --- Métricas Principais --- */}
-            <section>
-                <h2 className="text-lg font-semibold text-white mb-4">
-                    Resultados:{" "}
-                    <span className="text-blue-300">
-                        {ALL_STORES.find(s => s.id === storeFilter)?.name} ({periods.find(p => p.id === period)?.name})
-                    </span>
-                </h2>
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-
-                    {/* 1. Receita Total (Destaque principal) */}
-                    <MetricCard
-                        icon={<DollarSign className="w- h-5" />}
-                        title="Receita Total"
-                        value={formatCurrency(currentMetrics.totalRevenue)}
-                        growth={metricsWithGrowth.revenueGrowth}
-                        iconColor="bg-emerald-600 text-white"
-                        isMain
-                    />
-
-                    {/* 2. Total de Vendas (Contagem de Transações) */}
-                    <MetricCard
-                        icon={<ShoppingCart className="w-5 h-5" />}
-                        title="Total de Transações"
-                        value={currentMetrics.totalSalesCount}
-                        growth={metricsWithGrowth.salesCountGrowth}
-                        iconColor="bg-blue-600 text-white"
-                    />
-
-                    {/* 4. Ticket Médio */}
-                    <MetricCard
-                        icon={<DollarSign className="w-5 h-5" />}
-                        title="Ticket Médio"
-                        value={formatCurrency(currentMetrics.avgTicket)}
-                        growth={metricsWithGrowth.avgTicketGrowth}
-                        iconColor="bg-red-600 text-white"
-                    />
+            {/* Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 border-emerald-500/20 text-emerald-400 border p-6 rounded-[24px]">
+                    <div className="p-3 bg-slate-950/50 rounded-2xl border border-white/5 w-fit mb-4">
+                        <DollarSign size={20} />
+                    </div>
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Receita no Período</p>
+                    <h3 className="text-2xl font-black text-white tracking-tight">R$ {totalRevenue.toFixed(2)}</h3>
                 </div>
-            </section>
 
+                <div className="bg-gradient-to-br from-blue-500/20 to-blue-500/5 border-blue-500/20 text-blue-400 border p-6 rounded-[24px]">
+                    <div className="p-3 bg-slate-950/50 rounded-2xl border border-white/5 w-fit mb-4">
+                        <ShoppingCart size={20} />
+                    </div>
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Total de Vendas</p>
+                    <h3 className="text-2xl font-black text-white tracking-tight">{totalSales}</h3>
+                </div>
 
-            {/* --- Tabela de Detalhes (Vendas Recentes) --- */}
-            <section className="bg-slate-900 rounded-xl p-5 border border-slate-800 shadow-xl shadow-black/30">
-                <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><Clock className="w-5 h-5 text-slate-400" /> Detalhe das Últimas Vendas ({filteredSales.length} Resultados)</h2>
+                <div className="bg-gradient-to-br from-purple-500/20 to-purple-500/5 border-purple-500/20 text-purple-400 border p-6 rounded-[24px]">
+                    <div className="p-3 bg-slate-950/50 rounded-2xl border border-white/5 w-fit mb-4">
+                        <CreditCard size={20} />
+                    </div>
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Ticket Médio</p>
+                    <h3 className="text-2xl font-black text-white tracking-tight">R$ {avgTicket.toFixed(2)}</h3>
+                </div>
+            </div>
+
+            {/* Tabela com Busca e Filtro de Pagamento */}
+            <section className="bg-slate-900/40 border border-slate-800/50 rounded-[32px] overflow-hidden shadow-2xl">
                 <div className="overflow-x-auto">
-                    {filteredSales.length === 0 ? (
-                        <p className="text-slate-400 italic py-3 text-sm">Nenhuma transação ativa/concluída encontrada no período e filtro selecionados.</p>
-                    ) : (
-                        <table className="min-w-full divide-y divide-slate-800">
-                            <thead>
-                                <tr className="text-left text-slate-400 text-xs font-semibold uppercase tracking-wider bg-slate-800/50">
-                                    <th className="py-2 px-3 rounded-tl-lg">Itens Vendidos</th>
-                                    <th className="py-2 px-3">Valor Total</th>
-                                    <th className="py-2 px-3">Loja</th>
-                                    <th className="py-2 px-3 rounded-tr-lg">Data/Hora</th>
+                    <table className="w-full text-left">
+                        <thead>
+                            <tr className="bg-slate-950/40 border-b border-slate-800/50">
+                                <th className="px-8 py-6">
+                                    <div className="flex flex-col gap-3">
+                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Produto / Busca</span>
+                                        <div className="relative">
+                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" size={14} />
+                                            <input
+                                                placeholder="Filtrar por produto ou ID..."
+                                                value={searchTerm}
+                                                onChange={(e) => setSearchTerm(e.target.value)}
+                                                className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-[11px] text-white outline-none focus:border-blue-500 transition-all"
+                                            />
+                                        </div>
+                                    </div>
+                                </th>
+                                <th className="px-8 py-6">
+                                    <div className="flex flex-col gap-3">
+                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Valor</span>
+                                        <button className="bg-slate-900 border border-slate-800 px-3 py-2 rounded-xl text-[10px] font-black text-white flex items-center gap-2 w-fit hover:border-blue-500 transition-all">
+                                            MAIOR <ArrowUpDown size={12} />
+                                        </button>
+                                    </div>
+                                </th>
+                                <th className="px-8 py-6">
+                                    <div className="flex flex-col items-center gap-3">
+                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Pagamento</span>
+                                        <select
+                                            value={paymentFilter}
+                                            onChange={(e) => setPaymentFilter(e.target.value)}
+                                            className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-[10px] font-black text-white outline-none cursor-pointer hover:border-blue-500 transition-all"
+                                        >
+                                            <option value="all">TODOS</option>
+                                            <option value="pix">PIX</option>
+                                            <option value="cartão">CARTÃO</option>
+                                            <option value="dinheiro">DINHEIRO</option>
+                                        </select>
+                                    </div>
+                                </th>
+                                <th className="px-8 py-6 text-right">
+                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Data / Horário</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/30">
+                            {filteredSales.length === 0 ? (
+                                <tr>
+                                    <td colSpan={4} className="text-center py-16 text-slate-500">
+                                        Nenhuma venda encontrada para os filtros selecionados.
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-800">
-                                {filteredSales
-                                    .slice()
+                            ) : (
+                                filteredSales
                                     .sort((a, b) => b.timestamp.toDate().getTime() - a.timestamp.toDate().getTime())
-                                    .slice(0, 15) // Limita a 15 resultados recentes
                                     .map(sale => (
-                                        <tr key={sale.id} className="text-white hover:bg-slate-800/70 transition-colors">
-                                            <td className="py-2 px-3 text-xs font-medium max-w-xs truncate">
-                                                {/* Exibe o item principal ou a lista de itens */}
-                                                {sale.items.length > 0
-                                                    ? sale.items.map((i: any) => `${i.saleQty}x ${i.name}`).join(", ")
-                                                    : `Transação #${sale.id.substring(0, 8)}`}
+                                        <tr key={sale.id} className="hover:bg-blue-600/[0.03] transition-colors">
+                                            <td className="px-8 py-6">
+                                                <p className="text-sm text-white font-bold">
+                                                    {sale.items?.map((i: any) => i.name).join(", ") || "Venda Avulsa"}
+                                                </p>
+                                                <p className="text-[9px] text-slate-600 font-mono mt-1 uppercase tracking-tighter">
+                                                    REF: {sale.id.toUpperCase().slice(0, 20)}
+                                                </p>
                                             </td>
-                                            <td className="py-2 px-3 text-emerald-400 font-bold text-sm">
-                                                {formatCurrency(sale.total)}
+                                            <td className="px-8 py-6 font-black text-white">R$ {sale.total.toFixed(2)}</td>
+                                            <td className="px-8 py-6 text-center">
+                                                <span className={`px-3 py-1 rounded-full text-[9px] font-black border ${getPaymentBadge(sale.paymentMethod)}`}>
+                                                    {(sale.paymentMethod || "NÃO INF.").toUpperCase()}
+                                                </span>
                                             </td>
-                                            {/* Mapeia o ID da loja (email) para o Nome de exibição */}
-                                            <td className="py-2 px-3 text-slate-300 text-xs">
-                                                {ALL_STORES.find(s => s.id === sale.store)?.name || sale.store || "Desconhecida"}
-                                            </td>
-                                            <td className="py-2 px-3 text-slate-400 text-xs">
-                                                {sale.timestamp.toDate().toLocaleString("pt-BR", {
-                                                    dateStyle: "short",
-                                                    timeStyle: "short"
-                                                })}
+                                            <td className="px-8 py-6 text-right font-black text-slate-500 text-[10px]">
+                                                <div className="flex flex-col items-end">
+                                                    <span className="text-slate-300">
+                                                        {sale.timestamp.toDate().toLocaleDateString("pt-BR")}
+                                                    </span>
+                                                    <span className="text-slate-700 flex items-center gap-1 mt-1">
+                                                        <Clock size={10} /> 
+                                                        {sale.timestamp.toDate().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                                                    </span>
+                                                </div>
                                             </td>
                                         </tr>
-                                    ))}
-                            </tbody>
-                        </table>
-                    )}
+                                    ))
+                            )}
+                        </tbody>
+                    </table>
                 </div>
             </section>
         </div>
-    )
+    );
 }

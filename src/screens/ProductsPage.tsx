@@ -1,22 +1,17 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
-    Plus,
-    Search,
-    Smartphone,
-    Shield,
-    Cable,
-    Headphones,
-    Edit,
-    Trash2,
-    Package,
-    AlertTriangle,
-    // DollarSign, // Removido por não ser usado no escopo
+    Plus, Search, Smartphone, Shield, Cable, Headphones, 
+    Edit, Trash2, Package, TriangleAlert, FileText, 
+    ArrowUp, ArrowDown
 } from "lucide-react";
-import AddProductModal from "../components/AddProductModal.tsx";
-import EditStockModal from "../components/EditStockModal";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { fetchProducts, updateProduct, deleteProduct } from "../services/productsService";
-import "../index.css";
+import { fetchProducts, deleteProduct, updateProduct } from "../services/productsService";
+
+import AddProductModal from "../components/AddProductModal";
+import EditStockModal from "../components/EditStockModal";
 
 interface Product {
     id: string;
@@ -28,459 +23,315 @@ interface Product {
     minStock: number;
     price: number;
     status: "ok" | "low" | "critical";
-    store: string;
 }
+
+type SortField = "name" | "stock" | "price";
+type SortDirection = "asc" | "desc";
 
 export default function ProductsContent() {
     const auth = getAuth();
 
     const [userEmail, setUserEmail] = useState<string | null>(null);
+    const [effectiveStoreEmail, setEffectiveStoreEmail] = useState<string>("");
     const [products, setProducts] = useState<Product[]>([]);
+    const [loading, setLoading] = useState(true);
+
     const [selectedCategory, setSelectedCategory] = useState("all");
     const [searchTerm, setSearchTerm] = useState("");
+    const [isReplenishmentMode, setIsReplenishmentMode] = useState(false);
+    
+    const [sortField, setSortField] = useState<SortField>("stock");
+    const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+
     const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
     const [isEditStockModalOpen, setIsEditStockModalOpen] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-    const [isReplenishmentMode, setIsReplenishmentMode] = useState(false);
 
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, user => {
-            setUserEmail(user ? user.email : null);
-        });
-        return () => unsubscribe();
-    }, [auth]);
+    const STORE_MAPPING: Record<string, string> = {
+        "kluivert@solucell.com": "kluivert@solucell.com",
+        "funcionarios@solucell.com": "kluivert@solucell.com",
+    };
 
-    const determineStockStatus = (stock: number, minStock: number): "ok" | "low" | "critical" => {
-        if (minStock <= 0) return stock > 0 ? "ok" : "critical";
+    // Função para determinar status visual com base no estoque
+    const determineStatus = (stock: number, minStock: number) => {
         if (stock <= 0) return "critical";
-        if (stock <= minStock * 0.25) return "critical";
-        if (stock < minStock) return "low";
+        if (stock <= minStock) return "low";
         return "ok";
     };
 
     useEffect(() => {
-        if (!userEmail) return;
-
-        const loadProducts = async () => {
-            try {
-                const data = await fetchProducts(userEmail);
-
-                const productsWithStatus: Product[] = data.map((p: any) => ({
-                    ...p,
-                    stock: Number(p.stock),
-                    minStock: Number(p.minStock),
-                    price: Number(p.price),
-                    status: determineStockStatus(Number(p.stock), Number(p.minStock))
-                }));
-                setProducts(productsWithStatus);
-            } catch (err) {
-                console.error("Erro ao carregar produtos:", err);
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (user) {
+                const realStore = STORE_MAPPING[user.email!] || user.email!;
+                setUserEmail(user.email);
+                setEffectiveStoreEmail(realStore);
             }
-        };
-
-        loadProducts();
-    }, [userEmail]);
-
-    const handleAddProduct = (newProduct: Product) => {
-        const productWithStatus = {
-            ...newProduct,
-            status: determineStockStatus(newProduct.stock, newProduct.minStock)
-        };
-        setProducts(prev => [...prev, productWithStatus]);
-        setIsAddProductModalOpen(false);
-    };
-
-    const handleEditStockClick = (product: Product) => {
-        setSelectedProduct(product);
-        setIsEditStockModalOpen(true);
-    };
-
-    // ✅ FUNÇÃO CORRIGIDA: Recebe newName e newPrice
-    const handleEditStock = async (
-        productId: string,
-        newStock: number,
-        operation: "add" | "remove" | "set",
-        newName: string, 
-        newPrice: number
-    ) => {
-        if (!selectedProduct) return;
-
-        try {
-            const updatedFields: {
-                stock: number;
-                minStock: number;
-                name?: string;
-                price?: number;
-                nameLower?: string;
-            } = {
-                stock: Number(newStock),
-                minStock: Number(selectedProduct.minStock),
-            };
-
-            // ✅ ADICIONA NOME E nameLower SE HOUVE MUDANÇA
-            if (newName.trim() !== selectedProduct.name.trim()) {
-                updatedFields.name = newName.trim();
-                updatedFields.nameLower = newName.trim().toLowerCase();
-            }
-
-            // ✅ ADICIONA PREÇO SE HOUVE MUDANÇA
-            if (newPrice !== selectedProduct.price) {
-                updatedFields.price = newPrice;
-            }
-
-            await updateProduct(productId, updatedFields);
-
-            setProducts(prev =>
-                prev.map(p =>
-                    p.id === productId
-                        ? {
-                            ...p,
-                            ...updatedFields,
-                            // Usa o nome e preço do updatedFields, mas garante que a estrutura Product seja mantida
-                            name: updatedFields.name || p.name, 
-                            price: updatedFields.price !== undefined ? updatedFields.price : p.price,
-                            status: determineStockStatus(updatedFields.stock, updatedFields.minStock)
-                        }
-                        : p
-                )
-            );
-
-            setSelectedProduct(null);
-            setIsEditStockModalOpen(false);
-        } catch (err) {
-            console.error("Erro ao atualizar produto (estoque/detalhes):", err);
-        }
-    };
-
-
-    const handleDeleteProduct = useCallback(async (id: string, name: string) => {
-        if (!window.confirm(`Tem certeza que deseja excluir o produto "${name}"?`)) return;
-
-        try {
-            await deleteProduct(id);
-            setProducts(prev => prev.filter(p => p.id !== id));
-        } catch (err) {
-            console.error("Erro ao excluir produto:", err);
-        }
-    }, []);
-
-
-    const toggleReplenishmentMode = () => {
-        setIsReplenishmentMode(prev => {
-            if (prev) {
-                setSelectedCategory("all");
-                setSearchTerm("");
-            }
-            return !prev;
         });
-    };
+        return () => unsubscribe();
+    }, [auth]);
+
+    const loadProducts = useCallback(async () => {
+        if (!effectiveStoreEmail) return;
+        setLoading(true);
+        try {
+            const data = await fetchProducts(effectiveStoreEmail);
+            const formatted = data.map((p: any) => {
+                const stock = Number(p.stock || 0);
+                const minStock = Number(p.minStock || 5);
+                return {
+                    ...p,
+                    stock,
+                    minStock,
+                    price: Number(p.price || 0),
+                    status: determineStatus(stock, minStock)
+                };
+            });
+            setProducts(formatted);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    }, [effectiveStoreEmail]);
+
+// ✅ CORREÇÃO DEFINITIVA: Atualiza o banco E o estado local instantaneamente
+const handleUpdateProduct = async (
+    productId: string,
+    newStock: number,
+    operation: string,
+    newName: string,
+    newPrice: number,
+    newMinStock: number
+) => {
+    try {
+        // 1. Envia para o Firebase
+        await updateProduct(productId, {
+            name: newName,
+            price: newPrice,
+            stock: newStock,
+            minStock: newMinStock
+        });
+
+        // 2. ATUALIZAÇÃO LOCAL (O "Pulo do Gato"): 
+        // Em vez de só esperar o banco, mudamos o estado 'products' manualmente
+        setProducts(prevProducts => 
+            prevProducts.map(p => 
+                p.id === productId 
+                    ? { 
+                        ...p, 
+                        name: newName, 
+                        price: newPrice, 
+                        stock: newStock, 
+                        minStock: newMinStock,
+                        // Recalcula o status na hora para a cor mudar (verde/amarelo/vermelho)
+                        status: determineStatus(newStock, newMinStock) 
+                      } 
+                    : p
+            )
+        );
+
+        // 3. Fecha os modais
+        setIsEditStockModalOpen(false);
+        setSelectedProduct(null);
+
+        // 4. (Opcional) Recarrega do banco apenas para garantir sincronia total
+        await loadProducts(); 
+
+    } catch (err) {
+        console.error("Erro ao atualizar produto:", err);
+        alert("Erro ao salvar alterações no banco de dados.");
+    }
+};
+
+    useEffect(() => {
+        if (effectiveStoreEmail) loadProducts();
+    }, [effectiveStoreEmail, loadProducts]);
 
     const filteredProducts = useMemo(() => {
-        const filtered = products.filter(product => {
-            if (isReplenishmentMode) return product.status === "low" || product.status === "critical";
-
-            const matchesCategory = selectedCategory === "all" || product.category === selectedCategory;
-            const matchesSearch =
-                product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                product.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                product.model.toLowerCase().includes(searchTerm.toLowerCase());
-
-            return matchesCategory && matchesSearch;
+        let result = products.filter(p => {
+            const matchesCategory = selectedCategory === "all" || p.category === selectedCategory;
+            const matchesSearch = 
+                p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                p.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                p.model.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesReplenishment = !isReplenishmentMode || p.status !== "ok";
+            return matchesCategory && matchesSearch && matchesReplenishment;
         });
 
-        if (isReplenishmentMode) {
-            return filtered.sort((a, b) => {
-                if (a.status === "critical" && b.status !== "critical") return -1;
-                if (a.status !== "critical" && b.status === "critical") return 1;
-                return 0;
-            });
-        }
+        return result.sort((a, b) => {
+            let valA: any = a[sortField];
+            let valB: any = b[sortField];
+            if (sortField === "name") {
+                return sortDirection === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            }
+            return sortDirection === "asc" ? valA - valB : valB - valA;
+        });
+    }, [products, selectedCategory, searchTerm, isReplenishmentMode, sortField, sortDirection]);
 
-        return filtered;
-    }, [products, isReplenishmentMode, selectedCategory, searchTerm]);
-
-    const {
-        replenishmentCount,
-        // totalStockValue, // Não usado
-        // filteredStockValue, // Não usado
-        // lowStockValue, // Não usado
-    } = useMemo(() => {
-        // O cálculo pode ser simplificado se você não precisar de todos os valores na tela
-        const lowStockProducts = products.filter(p => p.status === "low" || p.status === "critical");
-        const replenishmentCount = lowStockProducts.length;
-
-        return {
-            replenishmentCount,
-            totalStockValue: 0,
-            filteredStockValue: 0,
-            lowStockValue: 0,
-        }
-    }, [products]);
-
-    const baseCategories = [
-        { id: "peliculas", name: "Películas", icon: Shield },
-        { id: "cases", name: "Cases", icon: Smartphone },
-        { id: "cabos", name: "Cabos", icon: Cable },
-        { id: "carregadores", name: "Carregadores", icon: Cable },
-        { id: "acessorios", name: "Acessórios", icon: Headphones },
-        { id: "fone", name: "Fone", icon: Headphones },
-        { id: "caixa", name: "Caixa de Som", icon: Headphones },
-        { id: "outros", name: "Outros", icon: Package }
-    ];
-
-    const categories = [
-        { id: "all", name: "Todos", icon: Package, count: products.length },
-        ...baseCategories.map(cat => ({
-            ...cat,
-            count: products.filter(p => p.category === cat.id).length
-        }))
-    ];
-
-    const getStockProgressColor = (status: string) => {
-        switch (status) {
-            case "ok": return "bg-emerald-500";
-            case "low": return "bg-amber-500";
-            case "critical": return "bg-red-500";
-            default: return "bg-slate-500";
+    const handleSort = (field: SortField) => {
+        if (sortField === field) {
+            setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+        } else {
+            setSortField(field);
+            setSortDirection(field === "name" ? "asc" : "desc");
         }
     };
 
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case "ok": return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
-            case "low": return "bg-amber-500/10 text-amber-400 border-amber-500/20";
-            case "critical": return "bg-red-500/10 text-red-400 border-red-500/20";
-            default: return "bg-slate-500/10 text-slate-400 border-slate-500/20";
-        }
+    const exportPDF = () => {
+        const doc = new jsPDF();
+        doc.setFontSize(18);
+        doc.text("SOLUCELL - Relatório de Estoque", 14, 20);
+        autoTable(doc, {
+            startY: 35,
+            head: [["Produto", "Marca/Modelo", "Estoque", "Mínimo", "Preço", "Status"]],
+            body: filteredProducts.map(p => [
+                p.name, 
+                `${p.brand} ${p.model}`, 
+                `${p.stock} un`, 
+                `${p.minStock} un`,
+                `R$ ${p.price.toFixed(2)}`, 
+                p.status.toUpperCase()
+            ]),
+            headStyles: { fillColor: [16, 185, 129] }
+        });
+        doc.save("estoque-solucell.pdf");
     };
 
-    const getStatusText = (status: string) => {
-        switch (status) {
-            case "ok": return "OK";
-            case "low": return "Baixo";
-            case "critical": return "Crítico";
-            default: return "Sem Status";
-        }
-    };
-
-    const getCategoryName = (id: string) => {
-        const category = baseCategories.find(c => c.id === id);
-        return category ? category.name : 'Outro';
-    }
-
-    const formatCurrency = (value: number) =>
-        new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
-        
     return (
-        <div className="p-8 space-y-8 bg-slate-950 min-h-screen">
-
-            {/* Título e Botão Adicionar */}
-            <div className="flex items-center justify-between">
+        <div className="min-h-screen bg-slate-950 text-slate-200 p-6 md:p-10 space-y-8">
+            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
                 <div>
-                    <h1 className="text-2xl font-semibold text-white mb-2">
-                        {isReplenishmentMode ? "Reposição de Estoque" : "Produtos"}
-                    </h1>
-                    <p className="text-slate-400 text-sm">
-                        {isReplenishmentMode
-                            ? "Visualizando apenas produtos em estado de alerta. Concentre-se no que precisa de atenção."
-                            : "Gerencie o catálogo completo de produtos e seus níveis de estoque."
-                        }
-                    </p>
+                    <h1 className="text-3xl font-bold text-white">Inventário</h1>
+                    <p className="text-slate-500">Gestão completa de produtos</p>
                 </div>
-                <button
-                    type="button"
-                    onClick={() => setIsAddProductModalOpen(true)}
-                    className="flex items-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-all font-medium shadow-lg shadow-emerald-500/20"
-                >
-                    <Plus className="w-5 h-5" />
-                    Novo Produto
-                </button>
+                <div className="flex gap-3">
+                    <button onClick={exportPDF} className="flex items-center gap-2 px-5 py-3 bg-slate-800 hover:bg-slate-700 rounded-2xl text-sm font-medium">
+                        <FileText size={18} /> Exportar PDF
+                    </button>
+                    <button onClick={() => setIsAddProductModalOpen(true)} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 px-6 py-3 rounded-2xl font-bold text-black">
+                        <Plus size={20} /> Novo Produto
+                    </button>
+                </div>
             </div>
 
-            {/* Filtro de Categorias*/}
-            {!isReplenishmentMode && (
-                <div className="flex flex-wrap gap-3 p-4 bg-slate-900 border border-slate-800 rounded-xl">
-                    {categories.map((category) => {
-                        const Icon = category.icon;
-                        const isActive = selectedCategory === category.id;
-                        return (
-                            <button
-                                type="button"
-                                key={category.id}
-                                onClick={() => setSelectedCategory(category.id)}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all 
-                                    ${isActive
-                                        ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/30"
-                                        : "bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
-                                    }`}
-                            >
-                                <Icon className="w-4 h-4" />
-                                {category.name}
-                                <span className="ml-1 px-2 py-0.5 text-xs rounded-full bg-slate-700/50">
-                                    {category.count}
-                                </span>
-                            </button>
-                        );
-                    })}
-                </div>
-            )}
-
-            {/* Barra de Ações: Busca e Modo Reposição*/}
-            <div className="flex items-center gap-4">
-                {!isReplenishmentMode && (
-                    <div className="flex-1 relative">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            {/* FILTROS */}
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-5">
+                <div className="flex flex-col lg:flex-row gap-4">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={20} />
                         <input
                             type="text"
                             placeholder="Buscar por nome, marca ou modelo..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-12 pr-4 py-3 bg-slate-900 border border-slate-800 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-all"
+                            className="w-full bg-slate-950 border border-slate-700 rounded-2xl pl-12 py-3 text-sm focus:border-emerald-500 outline-none"
                         />
                     </div>
-                )}
-
-                {/* Botão de Reposição  */}
-                <button
-                    type="button"
-                    onClick={toggleReplenishmentMode}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-all font-medium 
-                        ${isReplenishmentMode
-                            ? "bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 flex-1"
-                            : "bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-500/30"
-                        }`}
-                >
-                    <AlertTriangle className="w-5 h-5" />
-                    {isReplenishmentMode ? (
-                        "Ver Catálogo Completo"
-                    ) : (
-                        <>
-                            Reposição Necessária
-                            {replenishmentCount > 0 && (
-                                <span className="ml-1 px-2 py-0.5 text-xs rounded-full bg-white text-red-600 font-bold">
-                                    {replenishmentCount}
-                                </span>
-                            )}
-                        </>
-                    )}
-                </button>
-            </div>
-
-            {/* Tabela de Produtos */}
-            <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl shadow-slate-900/50">
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="bg-slate-800/80 border-b border-slate-700/50">
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Produto</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Marca</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Categoria</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Modelo</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Estoque</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Preço</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Status</th>
-                                <th className="px-6 py-4 text-right text-sm font-semibold text-slate-300">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredProducts.map((product, index) => (
-                                <tr
-                                    key={product.id}
-                                    className={`border-b border-slate-800 
-                                        ${isReplenishmentMode
-                                            ? (product.status === "critical" ? 'bg-red-900/20 hover:bg-red-900/30' : 'bg-amber-900/10 hover:bg-amber-900/20')
-                                            : (index % 2 === 0 ? 'bg-slate-900' : 'bg-slate-900/70')
-                                        } 
-                                        hover:bg-slate-800 transition-all`}
-                                >
-                                    <td className="px-6 py-4">
-                                        <p className="text-white font-medium">{product.name}</p>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="text-slate-400">{product.brand}</span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="text-slate-400">{getCategoryName(product.category)}</span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="text-slate-400">{product.model}</span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <p className="text-white font-medium mb-1">{product.stock} un.</p>
-                                        <div className="w-24 bg-slate-700 rounded-full h-1.5">
-                                            <div
-                                                className={`${getStockProgressColor(product.status)} h-1.5 rounded-full transition-all`}
-                                                style={{
-                                                    width: `${Math.min(100, (product.stock / product.minStock) * 100)}%`
-                                                }}
-                                            />
-                                        </div>
-                                        <p className="text-slate-500 text-xs mt-1">Mín: {product.minStock}</p>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="text-emerald-400 font-semibold">{formatCurrency(product.price)}</span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(product.status)}`}>
-                                            {getStatusText(product.status)}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center justify-end gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={() => handleEditStockClick(product)}
-                                                className="p-2 text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-all"
-                                                title="Editar Estoque"
-                                            >
-                                                <Edit className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleDeleteProduct(product.id, product.name)}
-                                                className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-                                                title="Excluir Produto"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                    <button onClick={() => setIsReplenishmentMode(!isReplenishmentMode)} className={`px-6 py-3 rounded-2xl font-bold flex items-center gap-2 transition-all ${isReplenishmentMode ? "bg-red-600 text-white" : "bg-slate-800 hover:bg-slate-700"}`}>
+                        <TriangleAlert size={18} />
+                        {isReplenishmentMode ? "Ver Todos" : "Somente Reposição"}
+                    </button>
                 </div>
-                {filteredProducts.length === 0 && (
-                    <div className="p-10 text-center text-slate-500">
-                        <p>
-                            {isReplenishmentMode
-                                ? "Nenhum produto precisa de reposição no momento! 🎉 Volte ao catálogo completo para ver todos os itens."
-                                : "Nenhum produto encontrado com os filtros atuais ou termo de busca."
-                            }
-                        </p>
+
+                <div className="flex flex-wrap gap-2">
+                    <CategoryBtn active={selectedCategory === "all"} onClick={() => setSelectedCategory("all")} icon={<Package size={16}/>} label="Todos" />
+                    <CategoryBtn active={selectedCategory === "peliculas"} onClick={() => setSelectedCategory("peliculas")} icon={<Shield size={16}/>} label="Películas" />
+                    <CategoryBtn active={selectedCategory === "cases"} onClick={() => setSelectedCategory("cases")} icon={<Smartphone size={16}/>} label="Cases" />
+                    <CategoryBtn active={selectedCategory === "cabos"} onClick={() => setSelectedCategory("cabos")} icon={<Cable size={16}/>} label="Cabos" />
+                    <CategoryBtn active={selectedCategory === "acessorios"} onClick={() => setSelectedCategory("acessorios")} icon={<Headphones size={16}/>} label="Acessórios" />
+                </div>
+
+                <div className="flex items-center gap-4 pt-4 border-t border-slate-800">
+                    <span className="text-xs uppercase font-bold text-slate-500 tracking-widest">Ordenar por:</span>
+                    <div className="flex gap-2 flex-wrap">
+                        <SortButton field="stock" label="Estoque" currentField={sortField} direction={sortDirection} onClick={handleSort} />
+                        <SortButton field="price" label="Preço" currentField={sortField} direction={sortDirection} onClick={handleSort} />
+                        <SortButton field="name" label="Nome" currentField={sortField} direction={sortDirection} onClick={handleSort} />
                     </div>
-                )}
+                </div>
             </div>
 
-            {/* Modals */}
-            <AddProductModal
-                isOpen={isAddProductModalOpen}
-                onClose={() => setIsAddProductModalOpen(false)}
-                onSubmit={handleAddProduct}
-                storeEmail={userEmail}
+            {/* TABELA */}
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden overflow-x-auto">
+                <table className="w-full min-w-[800px]">
+                    <thead>
+                        <tr className="bg-slate-950 text-xs uppercase font-bold text-slate-400 border-b border-slate-800">
+                            <th className="px-8 py-5 text-left">Produto</th>
+                            <th className="px-8 py-5 text-left">Marca / Modelo</th>
+                            <th className="px-8 py-5 text-center">Mínimo</th>
+                            <th className="px-8 py-5 text-center">Estoque</th>
+                            <th className="px-8 py-5 text-right">Preço</th>
+                            <th className="px-8 py-5 text-right">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800">
+                        {filteredProducts.map((p) => (
+                            <tr key={p.id} className="hover:bg-slate-800/70 transition-colors group">
+                                <td className="px-8 py-5 font-medium">{p.name}</td>
+                                <td className="px-8 py-5 text-slate-400">{p.brand} • {p.model}</td>
+                                <td className="px-8 py-5 text-center text-slate-500 font-medium">{p.minStock}</td>
+                                <td className="px-8 py-5 text-center">
+                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                        p.status === 'critical' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 
+                                        p.status === 'low' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 
+                                        'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                    }`}>
+                                        {p.stock} un
+                                    </span>
+                                </td>
+                                <td className="px-8 py-5 text-right font-bold text-emerald-400">
+                                    R$ {p.price.toFixed(2)}
+                                </td>
+                                <td className="px-8 py-5 text-right">
+                                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                                        <button onClick={() => { setSelectedProduct(p); setIsEditStockModalOpen(true); }} className="p-3 hover:bg-emerald-500/10 rounded-2xl text-emerald-400">
+                                            <Edit size={18} />
+                                        </button>
+                                        <button onClick={() => { if (window.confirm(`Excluir ${p.name}?`)) deleteProduct(p.id).then(loadProducts); }} className="p-3 hover:bg-red-500/10 rounded-2xl text-red-400">
+                                            <Trash2 size={18} />
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* MODAIS */}
+            <AddProductModal 
+                isOpen={isAddProductModalOpen} 
+                onClose={() => setIsAddProductModalOpen(false)} 
+                onSubmit={loadProducts} 
+                storeEmail={effectiveStoreEmail} 
             />
-            <EditStockModal
-                isOpen={isEditStockModalOpen}
-                onClose={() => {
-                    setIsEditStockModalOpen(false)
-                    setSelectedProduct(null)
-                }}
-                product={selectedProduct}
-                // ✅ CHAMADA CORRIGIDA: Agora passa newName e newPrice
-                onSubmit={(id, newStock, operation, newName, newPrice) =>
-                    handleEditStock(id, newStock, operation, newName, newPrice)
-                }
-            />
+            
+            {selectedProduct && (
+                <EditStockModal 
+                    isOpen={isEditStockModalOpen} 
+                    onClose={() => { setIsEditStockModalOpen(false); setSelectedProduct(null); }} 
+                    product={selectedProduct} 
+                    onSubmit={handleUpdateProduct} 
+                />
+            )}
         </div>
+    );
+}
+
+function CategoryBtn({ active, onClick, icon, label }: any) {
+    return (
+        <button onClick={onClick} className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold transition-all border ${active ? "bg-emerald-600 border-emerald-500 text-white" : "bg-slate-800 border-transparent text-slate-400 hover:bg-slate-700"}`}>
+            {icon} {label}
+        </button>
+    );
+}
+
+function SortButton({ field, label, currentField, direction, onClick }: any) {
+    const isActive = currentField === field;
+    return (
+        <button onClick={() => onClick(field)} className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all ${isActive ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" : "hover:bg-slate-800 text-slate-400"}`}>
+            {label}
+            {isActive && (direction === "asc" ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
+        </button>
     );
 }
