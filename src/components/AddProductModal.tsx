@@ -1,7 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import Modal from "./Modal.tsx";
-import { Package, Tag, Smartphone, Scan } from "lucide-react"; // Importado 'Scan'
+import { Package, Tag, Smartphone, Scan, Truck, RefreshCw, Printer } from "lucide-react"; 
 import { addProduct } from "../services/productsService";
+
+// IMPORTANTE: Vamos usar a biblioteca JsBarcode instalada no seu projeto
+// Se não tiver instalado, rode: npm install jsbarcode
+import JsBarcode from "jsbarcode";
 
 interface AddProductModalProps {
   isOpen: boolean;
@@ -15,14 +19,20 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, storeEmail 
     name: "",
     category: "peliculas",
     brand: "",
+    customBrand: "",
     model: "",
     stock: "",
     minStock: "",
     price: "",
     costPrice: "",
-    // NOVO: Campo para Código de Barras
     barcode: "",
+    provider: "",
   });
+
+  const [isNewBrandMode, setIsNewBrandMode] = useState(false);
+  
+  // Ref para criarmos um elemento oculto que vai gerar a imagem do código de barras
+  const hiddenSvgRef = useRef<SVGSVGElement>(null);
 
   const categories = [
     { id: "peliculas", name: "Películas" },
@@ -35,7 +45,7 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, storeEmail 
     { id: "outros", name: "Outros" }
   ];
 
-  const brands = [
+  const defaultBrands = [
     "Apple", "Samsung", "Xiaomi", "Motorola", "LG", "Asus", "Universal", "A'gold", "H'maston", "Outros"
   ];
 
@@ -53,9 +63,113 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, storeEmail 
 
   const isModelRequired = () => ["peliculas", "cases", "cabos", "carregadores"].includes(formData.category);
 
+  // 1. GERAR CÓDIGO DE BARRAS ALEATÓRIO
+  const handleGenerateRandomBarcode = () => {
+    const randomCode = Math.floor(1000000000000 + Math.random() * 9000000000000).toString();
+    setFormData(prev => ({ ...prev, barcode: randomCode }));
+  };
+
+  // 2. IMPRIMIR AS ETIQUETAS USANDO IMAGEM ESTÁTICA (SEM TRAVAMENTO E SEM SUMIR)
+  const handlePrintLabels = () => {
+    if (!formData.barcode) {
+      alert("Por favor, gere ou digite um código de barras antes de imprimir.");
+      return;
+    }
+
+    // Força a renderização do código de barras no nosso SVG oculto do DOM do React
+    if (hiddenSvgRef.current) {
+      const format = formData.barcode.length === 13 ? "EAN13" : "CODE128";
+      try {
+        JsBarcode(hiddenSvgRef.current, formData.barcode, {
+          format: format,
+          width: 2,
+          height: 50,
+          displayValue: true,
+          fontSize: 16,
+          lineColor: "#000"
+        });
+      } catch (e) {
+        // Fallback caso o EAN13 falhe por validação de dígito verificador
+        JsBarcode(hiddenSvgRef.current, formData.barcode, {
+          format: "CODE128",
+          width: 2,
+          height: 50,
+          displayValue: true,
+          fontSize: 16,
+          lineColor: "#000"
+        });
+      }
+    }
+
+    // Convertemos o SVG gerado em uma String Base64 segura que o navegador lê instantaneamente
+    const svgString = new XMLSerializer().serializeToString(hiddenSvgRef.current!);
+    const svgBase64 = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgString)));
+
+    const quantity = Number(formData.stock) || 1;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Bloqueador de pop-ups ativo! Permita pop-ups neste site para conseguir imprimir.");
+      return;
+    }
+
+    // Criamos o HTML repetindo a imagem estática gerada (carrega na hora!)
+    const labelsHtmlArray = Array.from({ length: quantity }).map(() => `
+      <div class="card">
+        <div class="title">${formData.name || "Produto Sem Nome"}</div>
+        <img class="barcode-img" src="${svgBase64}" />
+        <div class="price">${formData.price ? `R$ ${Number(formData.price).toFixed(2)}` : ""}</div>
+      </div>
+    `).join('');
+
+    const labelHTML = `
+      <html>
+        <head>
+          <title>Imprimir Etiqueta - ${formData.name}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 10px; padding: 0; background: #fff; }
+            .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; }
+            .card { border: 1px dashed #bbb; padding: 10px; text-align: center; page-break-inside: avoid; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fff; }
+            .title { font-size: 11px; font-weight: bold; margin-bottom: 2px; text-transform: uppercase; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #000; }
+            .price { font-size: 13px; font-weight: bold; margin-top: 2px; color: #000; }
+            .barcode-img { max-width: 160px; height: auto; display: block; margin: 4px 0; }
+          </style>
+        </head>
+        <body>
+          <div class="grid">
+            ${labelsHtmlArray}
+          </div>
+          <script>
+            window.onload = function() {
+              // Como a imagem já está injetada em Base64, ela já está pronta. Pode imprimir direto!
+              setTimeout(function() {
+                window.print();
+              }, 200);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(labelHTML);
+    printWindow.document.close();
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    
+    if (name === "brand" && value === "NEW_BRAND") {
+      setIsNewBrandMode(true);
+      setFormData(prev => ({ ...prev, brand: "", customBrand: "" }));
+      return;
+    }
+
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleCancelNewBrand = () => {
+    setIsNewBrandMode(false);
+    setFormData(prev => ({ ...prev, brand: "", customBrand: "" }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -63,19 +177,28 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, storeEmail 
 
     if (!storeEmail) {
       alert("Erro de autenticação: E-mail da loja indisponível.");
-      console.error("storeEmail é nulo. Produto não adicionado.");
+      return;
+    }
+
+    const finalBrand = isNewBrandMode ? formData.customBrand.trim() : formData.brand;
+
+    if (!finalBrand) {
+      alert("Por favor, selecione ou digite uma marca válida.");
       return;
     }
 
     try {
       const productData = {
-        ...formData,
+        name: formData.name,
+        category: formData.category,
+        brand: finalBrand,
+        model: formData.model,
         stock: Number(formData.stock),
         minStock: Number(formData.minStock),
         price: Number(formData.price),
         costPrice: formData.costPrice !== "" ? Number(formData.costPrice) : null,
-        // NOVO: Adiciona o barcode ao objeto de dados
         barcode: formData.barcode.trim() || null,
+        provider: formData.provider.trim() || null,
       };
 
       const newProduct = await addProduct(productData, storeEmail);
@@ -84,13 +207,16 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, storeEmail 
         name: "",
         category: "peliculas",
         brand: "",
+        customBrand: "",
         model: "",
         stock: "",
         minStock: "",
         price: "",
         costPrice: "",
         barcode: "",
+        provider: "",
       });
+      setIsNewBrandMode(false);
       onClose();
 
       if (onSubmit) {
@@ -99,13 +225,18 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, storeEmail 
 
     } catch (err) {
       console.error("Erro ao adicionar produto:", err);
-      alert("Erro ao adicionar produto. Verifique o console para mais detalhes.");
+      alert("Erro ao adicionar produto. Verifique o console.");
     }
   };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Adicionar Novo Produto" size="lg">
       <form onSubmit={handleSubmit} className="p-6 space-y-6">
+
+        {/* ELEMENTO SVG INVISÍVEL NO DOM DO REACT APENAS PARA GERAR O BASE64 */}
+        <div style={{ display: "none" }}>
+          <svg ref={hiddenSvgRef}></svg>
+        </div>
 
         {/* Nome */}
         <div>
@@ -118,31 +249,56 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, storeEmail 
               required
               value={formData.name}
               onChange={handleChange}
-              className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white"
+              className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
               placeholder="Ex: Película iPhone 14 Pro"
             />
           </div>
         </div>
 
-        {/* CÓDIGO DE BARRAS (NOVO CAMPO) */}
+        {/* CÓDIGO DE BARRAS */}
         <div>
           <label className="block text-sm text-slate-300 mb-2">Código de Barras (Opcional) 🏷️</label>
-          <div className="relative">
-            <Scan className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input
-              type="text"
-              name="barcode"
-              value={formData.barcode}
-              onChange={handleChange}
-              className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white"
-              placeholder="Bipe o código de barras ou digite aqui..."
-            />
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Scan className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input
+                type="text"
+                name="barcode"
+                value={formData.barcode}
+                onChange={handleChange}
+                className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                placeholder="Bipe, digite ou gere um código..."
+              />
+            </div>
+            
+            {/* Botão de Gerar Código */}
+            <button
+              type="button"
+              onClick={handleGenerateRandomBarcode}
+              className="px-4 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg flex items-center gap-2 transition-colors border border-slate-600"
+              title="Gerar código aleatório"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span className="hidden sm:inline text-xs">Gerar</span>
+            </button>
+
+            {/* Botão de Imprimir */}
+            {formData.barcode && (
+              <button
+                type="button"
+                onClick={handlePrintLabels}
+                className="px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 transition-colors"
+                title="Imprimir Etiquetas"
+              >
+                <Printer className="w-4 h-4" />
+                <span className="hidden sm:inline text-xs">Imprimir (${formData.stock || 0})</span>
+              </button>
+            )}
           </div>
           <p className="text-xs text-slate-500 mt-1 ml-1">
-            <strong>Como bipar:</strong>  Clique no campo e use seu leitor de código de barras. O leitor preencherá o campo e pressionará Enter.
+            Insira o <strong>Estoque</strong> desejado abaixo, gere ou bipe o código e clique em <strong>Imprimir</strong> para gerar as etiquetas físicas.
           </p>
         </div>
-
 
         {/* Categoria e Marca */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -153,7 +309,7 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, storeEmail 
               name="category"
               value={formData.category}
               onChange={handleChange}
-              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white"
+              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-emerald-500"
             >
               {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
@@ -163,16 +319,39 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, storeEmail 
             <label className="block text-sm text-slate-300 mb-2">Marca *</label>
             <div className="relative">
               <Tag className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <select
-                required
-                name="brand"
-                value={formData.brand}
-                onChange={handleChange}
-                className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white"
-              >
-                <option value="">Selecione a marca</option>
-                {brands.map(b => <option key={b} value={b}>{b}</option>)}
-              </select>
+              
+              {!isNewBrandMode ? (
+                <select
+                  required
+                  name="brand"
+                  value={formData.brand}
+                  onChange={handleChange}
+                  className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="">Selecione a marca</option>
+                  {defaultBrands.map(b => <option key={b} value={b}>{b}</option>)}
+                  <option value="NEW_BRAND" className="text-emerald-400 font-bold">+ Cadastrar Nova Marca</option>
+                </select>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    name="customBrand"
+                    required
+                    value={formData.customBrand}
+                    onChange={handleChange}
+                    className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-emerald-500/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                    placeholder="Digite a nova marca..."
+                  />
+                  <button 
+                    type="button" 
+                    onClick={handleCancelNewBrand}
+                    className="px-3 bg-slate-700 hover:bg-slate-600 text-xs rounded-lg text-slate-300 transition-colors"
+                  >
+                    Voltar
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -188,8 +367,24 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, storeEmail 
               required={isModelRequired()}
               value={formData.model}
               onChange={handleChange}
-              className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white"
+              className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
               placeholder={getModelPlaceholder()}
+            />
+          </div>
+        </div>
+
+        {/* Fornecedor */}
+        <div>
+          <label className="block text-sm text-slate-300 mb-2">Fornecedor (Opcional)</label>
+          <div className="relative">
+            <Truck className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input
+              type="text"
+              name="provider"
+              value={formData.provider}
+              onChange={handleChange}
+              className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+              placeholder="Ex: Distribuidora Sol, Importadora XYZ"
             />
           </div>
         </div>
@@ -205,7 +400,7 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, storeEmail 
               min="0"
               value={formData.stock}
               onChange={handleChange}
-              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white"
+              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-emerald-500"
             />
           </div>
           <div>
@@ -217,7 +412,7 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, storeEmail 
               min="0"
               value={formData.minStock}
               onChange={handleChange}
-              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white"
+              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-emerald-500"
             />
           </div>
         </div>
@@ -233,7 +428,8 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, storeEmail 
               step="0.01"
               value={formData.costPrice}
               onChange={handleChange}
-              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white"
+              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-emerald-500"
+              placeholder="0.00"
             />
           </div>
           <div>
@@ -246,14 +442,16 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, storeEmail 
               step="0.01"
               value={formData.price}
               onChange={handleChange}
-              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white"
+              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-emerald-500"
+              placeholder="0.00"
             />
           </div>
         </div>
 
+        {/* Botões do Formulário */}
         <div className="flex items-center gap-4 pt-4 border-t border-slate-800">
-          <button type="button" onClick={onClose} className="flex-1 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg">Cancelar</button>
-          <button type="submit" className="flex-1 px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg">Adicionar Produto</button>
+          <button type="button" onClick={onClose} className="flex-1 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors">Cancelar</button>
+          <button type="submit" className="flex-1 px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold transition-colors">Adicionar Produto</button>
         </div>
       </form>
     </Modal>

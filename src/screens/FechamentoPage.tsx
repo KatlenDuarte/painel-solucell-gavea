@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { 
     Plus, Trash2, Loader2, Package, Wallet, 
     CheckCircle2, FileText, XCircle, ArrowUpCircle, ArrowDownCircle,
-    AlertCircle, Landmark
+    AlertCircle, Landmark, X
 } from "lucide-react";
 
 import { 
@@ -18,8 +18,8 @@ interface Outflow {
     id: string;
     description: string;
     amount: number;
-    time: string;
     type: 'in' | 'out';
+    time: string;
 }
 
 interface SoldItem {
@@ -47,66 +47,66 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
     const [newDesc, setNewDesc] = useState("");
     const [newAmount, setNewAmount] = useState("");
 
-    // CORREÇÃO: Busca dados filtrados pela SESSÃO e pelo TEMPO de abertura
-const fetchData = useCallback(async (sessionId: string, openedAt: Timestamp) => {
-    if (!storeEmail || !sessionId) return;
-    
-    try {
-        // Criar o timestamp do início do dia atual (00:00:00)
-        const startOfDay = new Date();
-        startOfDay.setHours(0, 0, 0, 0);
-        const startOfDayTimestamp = Timestamp.fromDate(startOfDay);
+    // Estados do Modal de Fechamento Customizado
+    const [isClosingModalOpen, setIsClosingModalOpen] = useState(false);
+    const [physicalCashInput, setPhysicalCashInput] = useState("");
 
-        // 1. Buscar Vendas do DIA TODO (desde as 00:00)
-        const qSales = query(
-            collection(db, "sales"),
-            where("store", "==", storeEmail),
-            where("timestamp", ">=", startOfDayTimestamp), // ⬅️ Alterado para pegar tudo de hoje
-            orderBy("timestamp", "desc")
-        );
-        const salesSnap = await getDocs(qSales);
+    const fetchData = useCallback(async (sessionId: string, openedAt: Timestamp) => {
+        if (!storeEmail || !sessionId) return;
         
-        let pix = 0, cartao = 0, din = 0, fiado = 0;
-        const itemsMap: Record<string, number> = {};
+        try {
+            const startOfDay = new Date();
+            startOfDay.setHours(0, 0, 0, 0);
+            const startOfDayTimestamp = Timestamp.fromDate(startOfDay);
 
-        salesSnap.forEach(doc => {
-            const d = doc.data();
-            const valor = Number(d.total) || 0;
-            if (d.paymentMethod === "PIX") pix += valor;
-            else if (d.paymentMethod === "Cartão") cartao += valor;
-            else if (d.paymentMethod === "Dinheiro") din += valor;
-            else if (d.paymentMethod === "Fiado") fiado += valor;
+            const qSales = query(
+                collection(db, "sales"),
+                where("store", "==", storeEmail),
+                where("timestamp", ">=", startOfDayTimestamp),
+                orderBy("timestamp", "desc")
+            );
+            const salesSnap = await getDocs(qSales);
+            
+            let pix = 0, cartao = 0, din = 0, fiado = 0;
+            const itemsMap: Record<string, number> = {};
 
-            d.items?.forEach((it: any) => {
-                itemsMap[it.name] = (itemsMap[it.name] || 0) + (it.quantity || 1);
+            salesSnap.forEach(doc => {
+                const d = doc.data();
+                const valor = Number(d.total) || 0;
+                if (d.paymentMethod === "PIX") pix += valor;
+                else if (d.paymentMethod === "Cartão") cartao += valor;
+                else if (d.paymentMethod === "Dinheiro") din += valor;
+                else if (d.paymentMethod === "Fiado") fiado += valor;
+
+                d.items?.forEach((it: any) => {
+                    itemsMap[it.name] = (itemsMap[it.name] || 0) + (it.quantity || 1);
+                });
             });
-        });
 
-        setSummary({ pix, cartao, dinheiro: din, fiado });
-        setSoldItems(Object.entries(itemsMap).map(([name, qty]) => ({ name, qty })));
+            setSummary({ pix, cartao, dinheiro: din, fiado });
+            setSoldItems(Object.entries(itemsMap).map(([name, qty]) => ({ name, qty })));
 
-        // 2. Buscar Movimentações vinculadas APENAS a esta sessão atual
-        // Isso garante que sangrias antigas não apareçam no novo caixa
-        const qMov = query(
-            collection(db, "outflows"),
-            where("store", "==", storeEmail),
-            where("sessionId", "==", sessionId),
-            orderBy("timestamp", "asc")
-        );
-        
-        const movSnap = await getDocs(qMov);
-        setMovements(movSnap.docs.map(d => ({
-            id: d.id,
-            description: d.data().description,
-            amount: Number(d.data().amount),
-            type: d.data().type || 'out',
-            time: d.data().timestamp?.toDate()?.toLocaleTimeString("pt-BR") || "--:--"
-        })));
+            const qMov = query(
+                collection(db, "outflows"),
+                where("store", "==", storeEmail),
+                where("sessionId", "==", sessionId),
+                orderBy("timestamp", "asc")
+            );
+            
+            const movSnap = await getDocs(qMov);
+            setMovements(movSnap.docs.map(d => ({
+                id: d.id,
+                description: d.data().description,
+                amount: Number(d.data().amount),
+                type: d.data().type || 'out',
+                time: d.data().timestamp?.toDate()?.toLocaleTimeString("pt-BR") || "--:--"
+            })));
 
-    } catch (e) { 
-        console.error("Erro ao carregar dados:", e); 
-    }
-}, [storeEmail]);
+        } catch (e) { 
+            console.error("Erro ao carregar dados:", e); 
+        }
+    }, [storeEmail]);
+
     const checkActiveSession = useCallback(async () => {
         if (!storeEmail) return;
         setIsLoading(true);
@@ -130,7 +130,6 @@ const fetchData = useCallback(async (sessionId: string, openedAt: Timestamp) => 
                 setCashOpenedAt(sessionOpenedAt?.toDate()?.toLocaleString("pt-BR") || "Data indisponível");
                 setIsCashOpen(true);
                 
-                // Dispara a busca de dados usando os valores recém encontrados
                 await fetchData(session.id, sessionOpenedAt);
             } else { 
                 setIsCashOpen(false); 
@@ -150,6 +149,9 @@ const fetchData = useCallback(async (sessionId: string, openedAt: Timestamp) => 
     const totalOut = movements.filter(m => m.type === 'out').reduce((acc, i) => acc + i.amount, 0);
     const totalIn = movements.filter(m => m.type === 'in').reduce((acc, i) => acc + i.amount, 0);
     const saldoFinalGaveta = initialBalance + summary.dinheiro + totalIn - totalOut;
+
+    const parsedPhysicalCash = parseFloat(physicalCashInput.replace(',', '.')) || 0;
+    const currentDifference = parsedPhysicalCash - saldoFinalGaveta;
 
     const generateDetailedPDF = (physical: number, diff: number) => {
         const docPdf = new jsPDF();
@@ -202,35 +204,30 @@ const fetchData = useCallback(async (sessionId: string, openedAt: Timestamp) => 
         docPdf.save(`Fechamento_${storeEmail}_${Date.now()}.pdf`);
     };
 
-    const handleCloseCash = async () => {
-        const userInput = prompt("CONFERÊNCIA DE GAVETA:\nInforme o valor total em dinheiro contado:");
-        if (userInput === null) return;
-        const physicalCash = parseFloat(userInput.replace(',', '.'));
-        if (isNaN(physicalCash)) return alert("Valor inválido.");
-
-        const diff = physicalCash - saldoFinalGaveta;
-        const diffMsg = diff === 0 ? "Tudo certo! O caixa bateu." : diff > 0 ? `Sobrou R$ ${diff.toFixed(2)}` : `Faltou R$ ${Math.abs(diff).toFixed(2)}`;
-
-        if (!confirm(`${diffMsg}\nEncerrar definitivamente?`)) return;
+    const handleExecuteCloseCash = async () => {
+        const physicalCash = parseFloat(physicalCashInput.replace(',', '.'));
+        if (isNaN(physicalCash)) return alert("Por favor, insira um valor válido para o dinheiro contado.");
 
         setIsClosing(true);
         try {
-            generateDetailedPDF(physicalCash, diff);
+            generateDetailedPDF(physicalCash, currentDifference);
             if (currentSessionId) {
                 await updateDoc(doc(db, "cash_sessions", currentSessionId), { 
                     status: "closed", 
                     closedAt: serverTimestamp(),
                     expected: saldoFinalGaveta,
                     physical: physicalCash,
-                    difference: diff
+                    difference: currentDifference
                 });
             }
+            setIsClosingModalOpen(false);
+            setPhysicalCashInput("");
             setIsCashOpen(false);
             setCurrentSessionId(null);
             setMovements([]);
             setSummary({ pix: 0, cartao: 0, dinheiro: 0, fiado: 0 });
         } catch (e) { 
-            alert("Erro ao fechar."); 
+            alert("Erro ao fechar o caixa."); 
         } finally { 
             setIsClosing(false); 
         }
@@ -248,7 +245,7 @@ const fetchData = useCallback(async (sessionId: string, openedAt: Timestamp) => 
                 description: newDesc, 
                 amount: numericValue, 
                 type: type, 
-                sessionId: currentSessionId, // CRITICAL: Vincula à sessão
+                sessionId: currentSessionId,
                 timestamp: serverTimestamp() 
             });
             setNewDesc(""); 
@@ -273,49 +270,86 @@ const fetchData = useCallback(async (sessionId: string, openedAt: Timestamp) => 
 
     if (!isCashOpen) {
         return (
-            <div className="min-h-screen bg-[#020617] flex items-center justify-center p-6">
-                <div className="bg-slate-900 border border-slate-800 p-10 rounded-[3rem] w-full max-w-md text-center">
-                    <Wallet className="mx-auto text-blue-500 mb-6" size={50} />
-                    <h2 className="text-2xl font-black text-white italic mb-8 uppercase">Abrir Caixa</h2>
-                    <input 
-                        type="text" 
-                        placeholder="R$ 0,00" 
-                        className="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl p-5 text-3xl font-black text-white text-center mb-6 focus:border-blue-600 outline-none"
-                        value={tempInitialBalance} 
-                        onChange={e => setTempInitialBalance(e.target.value)}
-                    />
-                    <button 
-                        onClick={async () => {
-                            const val = parseFloat(tempInitialBalance.replace(',', '.'));
-                            if (isNaN(val)) return alert("Valor inválido");
-                            setIsOpening(true);
-                            try {
-                                await addDoc(collection(db, "cash_sessions"), {
-                                    store: storeEmail, 
-                                    initialBalance: val, 
-                                    openedAt: serverTimestamp(), 
-                                    status: "open"
-                                });
-                                setTempInitialBalance("");
-                                await checkActiveSession();
-                            } catch (e) {
-                                alert("Erro ao abrir caixa.");
-                            } finally {
-                                setIsOpening(false);
-                            }
-                        }}
-                        disabled={isOpening}
-                        className="w-full bg-blue-600 py-5 rounded-2xl font-black text-white hover:bg-blue-500 transition-all"
-                    >
-                        {isOpening ? <Loader2 className="animate-spin mx-auto"/> : "ABRIR AGORA"}
-                    </button>
+            <div className="min-h-screen bg-[#020617] text-slate-200 p-4 md:p-8">
+                <div className="max-w-5xl mx-auto space-y-6">
+                    <header className="flex justify-between items-end border-b border-slate-800 pb-6">
+                        <div>
+                            <h1 className="text-3xl font-black text-white italic">SOLUCELL<span className="text-blue-600">.</span></h1>
+                            <p className="text-rose-500 text-[10px] font-black uppercase tracking-widest">Caixa Fechado</p>
+                        </div>
+                        <div className="text-right text-[10px] font-bold text-slate-500 uppercase">Aguardando Operador</div>
+                    </header>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Painel do Fundo Inicial / Abertura */}
+                        <div className="bg-slate-900/30 border border-slate-800 rounded-3xl p-6 flex flex-col justify-between">
+                            <div>
+                                <h3 className="text-white font-black text-[10px] uppercase mb-4 tracking-widest">Abertura de Turno</h3>
+                                <p className="text-xs text-slate-400 mb-6">Informe o montante em dinheiro separado para troco e fundo de gaveta.</p>
+                                
+                                <div className="space-y-2 mb-4">
+                                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest block pl-1">Fundo de Caixa</label>
+                                    <input 
+                                        type="text" 
+                                        placeholder="R$ 0,00" 
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-xl font-black text-white outline-none focus:border-blue-600 transition-all"
+                                        value={tempInitialBalance} 
+                                        onChange={e => setTempInitialBalance(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 text-slate-500 bg-slate-950/40 px-4 py-2 rounded-xl border border-slate-800 text-[10px] font-bold uppercase">
+                                <AlertCircle size={14} className="text-blue-500"/> Defina o valor para liberar o terminal.
+                            </div>
+                        </div>
+
+                        {/* Card do Lado Direito - Minimalista e Alinhado */}
+                        <div className="bg-slate-900/30 border border-slate-800 rounded-3xl p-8 flex flex-col justify-between relative">
+                            <div className="absolute top-6 right-6 text-slate-800"><Wallet size={24}/></div>
+                            
+                            <div>
+                                <h3 className="text-white font-black text-[10px] uppercase mb-4 tracking-widest">Confirmação</h3>
+                                <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full text-[9px] font-black text-amber-400 uppercase tracking-wider mb-2">
+                                    ● Aguardando Início
+                                </div>
+                                <p className="text-xs text-slate-400 max-w-xs">Após confirmar, o terminal estará pronto para registrar novas vendas e fluxos de caixa.</p>
+                            </div>
+
+                            <button 
+                                onClick={async () => {
+                                    const val = parseFloat(tempInitialBalance.replace(',', '.'));
+                                    if (isNaN(val)) return alert("Por favor, insira um valor inicial válido.");
+                                    setIsOpening(true);
+                                    try {
+                                        await addDoc(collection(db, "cash_sessions"), {
+                                            store: storeEmail, 
+                                            initialBalance: val, 
+                                            openedAt: serverTimestamp(), 
+                                            status: "open"
+                                        });
+                                        setTempInitialBalance("");
+                                        await checkActiveSession();
+                                    } catch (e) {
+                                        alert("Erro ao abrir caixa.");
+                                    } finally {
+                                        setIsOpening(false);
+                                    }
+                                }}
+                                disabled={isOpening || !tempInitialBalance}
+                                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-30 disabled:hover:bg-blue-600 text-white font-black py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 active:scale-98 transition-all uppercase text-xs tracking-wider mt-6"
+                            >
+                                {isOpening ? <Loader2 className="animate-spin text-white" size={16}/> : <>INICIAR OPERAÇÃO</>}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-[#020617] text-slate-200 p-4 md:p-8">
+        <div className="min-h-screen bg-[#020617] text-slate-200 p-4 md:p-8 relative">
             <div className="max-w-5xl mx-auto space-y-6">
                 <header className="flex justify-between items-end border-b border-slate-800 pb-6">
                     <div>
@@ -411,14 +445,89 @@ const fetchData = useCallback(async (sessionId: string, openedAt: Timestamp) => 
                         <p className="text-[10px] font-black uppercase">Fiado Pendente: R$ {summary.fiado.toFixed(2)}</p>
                     </div>
                     <button 
-                        onClick={handleCloseCash} 
-                        disabled={isClosing} 
-                        className="w-full md:w-auto bg-blue-600 hover:bg-blue-500 text-white font-black px-10 py-5 rounded-2xl shadow-xl flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
+                        onClick={() => setIsClosingModalOpen(true)} 
+                        className="w-full md:w-auto bg-blue-600 hover:bg-blue-500 text-white font-black px-10 py-5 rounded-2xl shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all"
                     >
-                        {isClosing ? <Loader2 className="animate-spin"/> : <><FileText size={20}/> ENCERRAR CAIXA</>}
+                        <FileText size={20}/> ENCERRAR CAIXA
                     </button>
                 </div>
             </div>
+
+            {/* MODAL CUSTOMIZADO DE FECHAMENTO */}
+            {isClosingModalOpen && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                    <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] w-full max-w-lg p-8 relative shadow-2xl">
+                        <button 
+                            onClick={() => {
+                                setIsClosingModalOpen(false);
+                                setPhysicalCashInput("");
+                            }} 
+                            className="absolute top-6 right-6 text-slate-400 hover:text-white transition-all"
+                        >
+                            <X size={20} />
+                        </button>
+
+                        <div className="text-center mb-6">
+                            <Landmark className="mx-auto text-blue-500 mb-3" size={40} />
+                            <h3 className="text-xl font-black text-white uppercase italic tracking-wide">Conferência de Caixa</h3>
+                            <p className="text-xs text-slate-400 mt-1">Insira o montante total em dinheiro físico presente na gaveta</p>
+                        </div>
+
+                        <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 mb-6 flex justify-between items-center">
+                            <span className="text-xs font-bold text-slate-500 uppercase">Saldo Esperado:</span>
+                            <span className="text-lg font-black text-slate-300">R$ {saldoFinalGaveta.toFixed(2)}</span>
+                        </div>
+
+                        <div className="space-y-2 mb-6">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block pl-1">Valor Contado (Dinheiro)</label>
+                            <input 
+                                type="text" 
+                                placeholder="R$ 0,00" 
+                                value={physicalCashInput}
+                                onChange={e => setPhysicalCashInput(e.target.value)}
+                                className="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl p-4 text-2xl font-black text-white text-center focus:border-blue-600 outline-none transition-all"
+                                autoFocus
+                            />
+                        </div>
+
+                        {/* Painel Informativo da Diferença em tempo real */}
+                        {physicalCashInput.trim() !== "" && (
+                            <div className={`p-4 rounded-2xl border text-center mb-6 transition-all ${
+                                currentDifference === 0 
+                                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
+                                : currentDifference > 0 
+                                ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' 
+                                : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                            }`}>
+                                <p className="text-xs font-black uppercase tracking-wider">
+                                    {currentDifference === 0 && "Caixa perfeito! Tudo bateu."}
+                                    {currentDifference > 0 && `Sobra no caixa: R$ ${currentDifference.toFixed(2)}`}
+                                    {currentDifference < 0 && `Falta no caixa: R$ ${Math.abs(currentDifference).toFixed(2)}`}
+                                </p>
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <button 
+                                onClick={() => {
+                                    setIsClosingModalOpen(false);
+                                    setPhysicalCashInput("");
+                                }}
+                                className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-4 rounded-xl text-xs uppercase tracking-wider transition-all"
+                            >
+                                Cancelar
+                            </button>
+                            <button 
+                                onClick={handleExecuteCloseCash}
+                                disabled={isClosing || !physicalCashInput}
+                                className="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:hover:bg-blue-600 text-white font-black py-4 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all"
+                            >
+                                {isClosing ? <Loader2 className="animate-spin text-white" size={16}/> : "CONFIRMAR E FECHAR"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
