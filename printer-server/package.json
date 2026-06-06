@@ -5,11 +5,15 @@
   "bin": "server.js",
   "scripts": {
     "start": "node server.js",
-    "build": "pkg server.js --targets node18-win-x64 --output SoluCellPrint.exe"
+    "build": "npx pkg server.js --targets node18-win-x64 --output SoluCellPrint.exe"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.18.2",
-    "pdf-to-printer": "^5.6.0"
+    "pdf-to-printer": "^5.6.0",
+    "puppeteer": "^25.1.0"
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1"
   }
 }
