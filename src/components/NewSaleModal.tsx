@@ -1,13 +1,14 @@
+// src/components/NewSaleModal.tsx
 import React, { useState, useMemo, useEffect } from "react";
 import {
     X, Search, Tag, Trash2, Minus, Plus,
-    Wrench, PackageX, ShoppingCart, Info,
-    CreditCard, Banknote, QrCode, UserPlus, Layers3, Calendar
+    Wrench, PackageX, ShoppingCart,
+    CreditCard, Banknote, QrCode, Layers, UserX
 } from "lucide-react";
 
 // Firebase
 import { db } from "../lib/firebase";
-import { collection, addDoc, serverTimestamp, doc, updateDoc, increment } from "firebase/firestore";
+import { collection, serverTimestamp, doc, runTransaction } from "firebase/firestore";
 import { fetchProducts } from "../services/productsService";
 
 // --- Interfaces ---
@@ -44,9 +45,13 @@ const formatCurrencyInput = (raw: string): [number, string] => {
     return [num, display];
 };
 
-const NewSaleModal: React.FC<{ onClose: () => void; storeEmail: string | null; onSaleComplete: () => void }> = ({
-    onClose, storeEmail, onSaleComplete
-}) => {
+interface NewSaleModalProps {
+    onClose: () => void;
+    storeEmail: string | null;
+    onSaleComplete: () => void;
+}
+
+const NewSaleModal: React.FC<NewSaleModalProps> = ({ onClose, storeEmail, onSaleComplete }) => {
     const [activeTab, setActiveTab] = useState<'venda' | 'manutencao' | 'perda'>('venda');
     const [isLoading, setIsLoading] = useState(false);
     const [stock, setStock] = useState<Product[]>([]);
@@ -65,10 +70,11 @@ const NewSaleModal: React.FC<{ onClose: () => void; storeEmail: string | null; o
         fiado: { valor: 0, nome: "", whatsapp: "", data: "" }
     });
 
-    // Inputs auxiliares mascarados para a aba de Múltiplos
+    // Inputs auxiliares mascarados para a aba de Múltiplos e Fiado
     const [multiPixInput, setMultiPixInput] = useState("");
     const [multiCartaoInput, setMultiCartaoInput] = useState("");
     const [multiDinheiroInput, setMultiDinheiroInput] = useState("");
+    const [fiadoValorInput, setFiadoValorInput] = useState("");
 
     const [nonCatalogItem, setNonCatalogItem] = useState({ name: "", price: 0 });
     const [nonCatalogPriceInput, setNonCatalogPriceInput] = useState("");
@@ -82,48 +88,45 @@ const NewSaleModal: React.FC<{ onClose: () => void; storeEmail: string | null; o
     const [lossProducts, setLossProducts] = useState<SaleItem[]>([]);
     const [lossReason, setLossReason] = useState("");
 
+    // Leitor de Código de Barras
     useEffect(() => {
-    let barcodeBuffer = "";
-    let timeout: NodeJS.Timeout;
+        let barcodeBuffer = "";
+        let timeout: NodeJS.Timeout | null = null;
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-        // Ignora se estiver digitando em textarea
-        if ((e.target as HTMLElement)?.tagName === "TEXTAREA") return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.target as HTMLElement)?.tagName === "TEXTAREA" || (e.target as HTMLElement)?.tagName === "INPUT") return;
 
-        clearTimeout(timeout);
+            clearTimeout(timeout);
 
-        if (e.key === "Enter") {
-            if (barcodeBuffer.length >= 4) {
-                const product = stock.find(
-                    p => p.barcode === barcodeBuffer
-                );
-
-                if (product) {
-                    handleAddProduct(product, activeTab === "perda" ? "perda" : "venda");
+            if (e.key === "Enter") {
+                const code = barcodeBuffer.trim();
+                if (code.length >= 4) {
+                    const product = stock.find(p => String(p.barcode).trim() === code);
+                    if (product) {
+                        handleAddProduct(product, activeTab === "perda" ? "perda" : "venda");
+                    }
                 }
+                barcodeBuffer = "";
+                return;
             }
 
-            barcodeBuffer = "";
-            return;
-        }
+            if (/^[0-9A-Za-z]$/.test(e.key)) {
+                barcodeBuffer += e.key;
+            }
 
-        if (/^[0-9A-Za-z]$/.test(e.key)) {
-            barcodeBuffer += e.key;
-        }
+            timeout = setTimeout(() => {
+                barcodeBuffer = "";
+            }, 100);
+        };
 
-        timeout = setTimeout(() => {
-            barcodeBuffer = "";
-        }, 100);
-    };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => {
+            window.removeEventListener("keydown", handleKeyDown);
+            clearTimeout(timeout);
+        };
+    }, [stock, activeTab]);
 
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-        window.removeEventListener("keydown", handleKeyDown);
-        clearTimeout(timeout);
-    };
-}, [stock, activeTab]);
-
+    // Carregar estoque inicial
     useEffect(() => {
         const load = async () => {
             if (!storeEmail) return;
@@ -135,6 +138,7 @@ const NewSaleModal: React.FC<{ onClose: () => void; storeEmail: string | null; o
         load();
     }, [storeEmail]);
 
+    // Cálculos Reativos
     const subtotal = useMemo(() => selectedProducts.reduce((acc, curr) => acc + curr.total, 0), [selectedProducts]);
     const totalVenda = Math.max(0, subtotal - discount);
     const totalLoss = useMemo(() => lossProducts.reduce((acc, curr) => acc + curr.total, 0), [lossProducts]);
@@ -146,7 +150,13 @@ const NewSaleModal: React.FC<{ onClose: () => void; storeEmail: string | null; o
         return totalLoss;
     }, [activeTab, totalVenda, maint.totalService, totalLoss]);
 
+    // Soma dos múltiplos pagamentos para validação
+    const totalMultiPreenchido = useMemo(() => {
+        return payments.pix + payments.cartao + payments.dinheiro;
+    }, [payments.pix, payments.cartao, payments.dinheiro]);
+
     const handleFinish = async () => {
+        console.log("SALVANDO VENDA");
         if (!storeEmail) return alert("Erro: Email da loja não identificado.");
         setIsLoading(true);
 
@@ -157,27 +167,51 @@ const NewSaleModal: React.FC<{ onClose: () => void; storeEmail: string | null; o
                 type: activeTab,
             };
 
-            // ==================== CASO FIADO ====================
             if (paymentMethod === "Fiado" && activeTab !== 'perda') {
                 if (!payments.fiado.nome || payments.fiado.valor <= 0) {
-                    throw new Error("Preencha o nome e o valor do fiado.");
+                    throw new Error("Preencha o nome e o valor correto do fiado.");
                 }
+                saleData.status = "pending";
+                saleData.paymentMethod = "Fiado";
+                saleData.total = totalFinalCalculado;
+                saleData.fiado = payments.fiado;
+                saleData.items = activeTab === 'venda'
+                    ? selectedProducts.map(i => ({ id: i.id, name: i.name, price: i.price, saleQty: i.saleQty }))
+                    : [{ name: `MNT: ${maint.device}`, price: maint.totalService, saleQty: 1 }];
+            } else if (paymentMethod === "Múltiplos" && activeTab !== 'perda') {
+                if (Math.abs(totalMultiPreenchido - totalFinalCalculado) > 0.01) {
+                    throw new Error(`A soma dos valores (R$ ${totalMultiPreenchido.toFixed(2)}) deve ser exatamente igual ao total geral (R$ ${totalFinalCalculado.toFixed(2)}).`);
+                }
+                saleData.status = "completed";
+                saleData.paymentMethod = "Múltiplos";
+     saleData.multiplePayments = [];
 
-                saleData = {
-                    ...saleData,
-                    status: "pending",
-                    paymentMethod: "Fiado",
-                    total: totalFinalCalculado,
-                    fiado: payments.fiado,
-                    items: activeTab === 'venda'
-                        ? selectedProducts.map(i => ({ id: i.id, name: i.name, price: i.price, saleQty: i.saleQty }))
-                        : [{ name: `MNT: ${maint.device}`, price: maint.totalService, saleQty: 1 }]
-                };
-            }
-            // ==================== OUTROS MÉTODOS / PERDA ====================
-            else {
+if (payments.pix > 0) {
+    saleData.multiplePayments.push({
+        method: "PIX",
+        value: payments.pix
+    });
+}
+
+if (payments.cartao > 0) {
+    saleData.multiplePayments.push({
+        method: "CARTÃO",
+        value: payments.cartao
+    });
+}
+
+if (payments.dinheiro > 0) {
+    saleData.multiplePayments.push({
+        method: "DINHEIRO",
+        value: payments.dinheiro
+    });
+}
+                saleData.total = totalFinalCalculado;
+                saleData.items = activeTab === 'venda'
+                    ? selectedProducts.map(i => ({ id: i.id, name: i.name, price: i.price, saleQty: i.saleQty }))
+                    : [{ name: `MNT: ${maint.device}`, price: maint.totalService, saleQty: 1 }];
+            } else {
                 saleData.status = activeTab === 'perda' ? "loss" : "completed";
-
                 let finalPayments = { ...payments };
 
                 if (paymentMethod === "PIX") {
@@ -186,45 +220,10 @@ const NewSaleModal: React.FC<{ onClose: () => void; storeEmail: string | null; o
                     finalPayments = { pix: 0, cartao: totalFinalCalculado, dinheiro: 0, fiado: { valor: 0, nome: "", whatsapp: "", data: "" } };
                 } else if (paymentMethod === "Dinheiro") {
                     finalPayments = { pix: 0, cartao: 0, dinheiro: totalFinalCalculado, fiado: { valor: 0, nome: "", whatsapp: "", data: "" } };
-                } else if (paymentMethod === "Múltiplos") {
-                    // CORREÇÃO DOS MÚLTIPLOS: Mapeia diretamente os valores processados das inputs auxiliares
-                    finalPayments = {
-                        pix: payments.pix,
-                        cartao: payments.cartao,
-                        dinheiro: payments.dinheiro,
-                        fiado: { valor: 0, nome: "", whatsapp: "", data: "" }
-                    };
                 }
 
                 saleData.payments = finalPayments;
                 saleData.paymentMethod = activeTab === 'perda' ? "N/A" : paymentMethod;
-
-                if (paymentMethod === "Múltiplos") {
-                    const multiplePayments = [];
-
-                    if (finalPayments.pix > 0) {
-                        multiplePayments.push({
-                            method: "PIX",
-                            value: finalPayments.pix
-                        });
-                    }
-
-                    if (finalPayments.cartao > 0) {
-                        multiplePayments.push({
-                            method: "CARTÃO",
-                            value: finalPayments.cartao
-                        });
-                    }
-
-                    if (finalPayments.dinheiro > 0) {
-                        multiplePayments.push({
-                            method: "DINHEIRO",
-                            value: finalPayments.dinheiro
-                        });
-                    }
-
-                    saleData.multiplePayments = multiplePayments;
-                }
 
                 if (activeTab === 'venda') {
                     if (selectedProducts.length === 0) throw new Error("Adicione ao menos um produto.");
@@ -232,25 +231,15 @@ const NewSaleModal: React.FC<{ onClose: () => void; storeEmail: string | null; o
                     saleData.total = totalFinalCalculado;
                     saleData.discount = discount;
                     saleData.type = 'venda_direta';
-                }
-                else if (activeTab === 'manutencao') {
+                } else if (activeTab === 'manutencao') {
                     if (!maint.client || maint.totalService <= 0) throw new Error("Preencha os dados da manutenção.");
                     saleData.clientName = maint.client;
                     saleData.items = [{ name: `MNT: ${maint.device}`, price: maint.totalService, saleQty: 1 }];
                     saleData.total = maint.totalService;
-
-                    // CORREÇÃO DA MANUTENÇÃO: Garante que partCost e totalService vão salvos explicitamente
-                    saleData.partCost = maint.partCost; // Enviado na raiz caso seu dashboard use assim
-                    saleData.maintenanceDetails = {
-                        client: maint.client,
-                        device: maint.device,
-                        problem: maint.problem,
-                        partCost: maint.partCost,
-                        totalService: maint.totalService
-                    };
+                    saleData.partCost = maint.partCost;
+                    saleData.maintenanceDetails = maint;
                     saleData.type = 'manutencao';
-                }
-                else if (activeTab === 'perda') {
+                } else if (activeTab === 'perda') {
                     if (lossProducts.length === 0) throw new Error("Selecione os produtos da perda.");
                     saleData.items = lossProducts.map(i => ({ id: i.id, name: i.name, price: i.price, saleQty: i.saleQty }));
                     saleData.total = totalFinalCalculado;
@@ -259,17 +248,73 @@ const NewSaleModal: React.FC<{ onClose: () => void; storeEmail: string | null; o
                 }
             }
 
-            // Salvar no Firebase
-            await addDoc(collection(db, "sales"), saleData);
+            // TRANSACTION - Baixa de estoque segura
+   await runTransaction(db, async (transaction) => {
 
-            // Atualizar estoque
-            const itemsToUpdate = activeTab === 'perda' ? lossProducts : selectedProducts;
-            for (const item of itemsToUpdate) {
-                if (!item.id.includes('avulso')) {
-                    const productRef = doc(db, "products", item.id);
-                    await updateDoc(productRef, { stock: increment(-item.saleQty) });
-                }
-            }
+    console.log(
+        "Produtos na venda:",
+        activeTab === "perda"
+            ? lossProducts.length
+            : selectedProducts.length
+    );
+
+    const itemsToUpdate =
+        activeTab === "perda"
+            ? lossProducts
+            : selectedProducts;
+
+    const productsToUpdate: any[] = [];
+
+    // 1º PASSO - LER TUDO
+    for (const item of itemsToUpdate) {
+
+        if (item.id.startsWith("avulso-")) continue;
+
+        const productRef = doc(db, "products", item.id);
+
+        const productSnap =
+            await transaction.get(productRef);
+
+        productsToUpdate.push({
+            ref: productRef,
+            snap: productSnap,
+            qty: item.saleQty
+        });
+    }
+
+    // 2º PASSO - ESCREVER TUDO
+    for (const product of productsToUpdate) {
+
+        if (!product.snap.exists()) continue;
+
+        const currentStock =
+            product.snap.data().stock || 0;
+
+        transaction.update(product.ref, {
+            stock: Math.max(
+                0,
+                currentStock - product.qty
+            )
+        });
+    }
+
+    const newSaleRef = doc(collection(db, "sales"));
+
+    transaction.set(newSaleRef, saleData);
+});
+
+            try {
+                await fetch("http://localhost:3333/print", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        items: saleData.items,
+                        total: saleData.total,
+                        paymentMethod: saleData.paymentMethod,
+                        discount: saleData.discount || 0
+                    })
+                });
+            } catch (pErr) { console.log("Impressora offline."); }
 
             alert("Operação registrada com sucesso!");
             onSaleComplete();
@@ -283,28 +328,48 @@ const NewSaleModal: React.FC<{ onClose: () => void; storeEmail: string | null; o
         }
     };
 
-    const handleAddProduct = (p: Product, target: 'venda' | 'perda') => {
-        const list = target === 'venda' ? selectedProducts : lossProducts;
-        const setList = target === 'venda' ? setSelectedProducts : setLossProducts;
-        const existing = list.find(item => item.id === p.id);
-
-        if (existing) {
-            setList(prev => prev.map(item => item.id === p.id ? { ...item, saleQty: item.saleQty + 1, total: item.price * (item.saleQty + 1) } : item));
-        } else {
-            setList([...list, { ...p, saleQty: 1, total: p.price }]);
-        }
+    const handleAddProduct = (p: Product, target: "venda" | "perda") => {
+        const setList = target === "venda" ? setSelectedProducts : setLossProducts;
+        setList(prev => {
+            const existing = prev.find(item => item.id === p.id);
+            if (existing) {
+                if (existing.saleQty >= p.stock) return prev;
+                return prev.map(item => item.id === p.id ? { ...item, saleQty: item.saleQty + 1, total: item.price * (item.saleQty + 1) } : item);
+            }
+            return [...prev, { ...p, saleQty: 1, total: p.price }];
+        });
         setProductSearch("");
     };
 
-    const handleQtyChange = (id: string, qty: number, target: 'venda' | 'perda') => {
-        const setList = target === 'venda' ? setSelectedProducts : setLossProducts;
-        setList(prev => prev.map(item => {
-            if (item.id === id) {
-                const newQty = Math.max(1, qty);
-                return { ...item, saleQty: newQty, total: item.price * newQty };
-            }
-            return item;
-        }));
+    const handleQtyChange = (
+        id: string,
+        qty: number,
+        target: 'venda' | 'perda'
+    ) => {
+        const setList =
+            target === 'venda'
+                ? setSelectedProducts
+                : setLossProducts;
+
+        setList(prev =>
+            prev.map(item => {
+                if (item.id === id) {
+
+                    const newQty = Math.min(
+                        Math.max(1, qty),
+                        item.stock
+                    );
+
+                    return {
+                        ...item,
+                        saleQty: newQty,
+                        total: item.price * newQty
+                    };
+                }
+
+                return item;
+            })
+        );
     };
 
     const handleAddNonCatalog = () => {
@@ -321,9 +386,9 @@ const NewSaleModal: React.FC<{ onClose: () => void; storeEmail: string | null; o
     };
 
     const theme = {
-        venda: { color: 'emerald', border: 'border-emerald-500/30', text: 'text-emerald-400', icon: <ShoppingCart size={18} /> },
-        manutencao: { color: 'blue', border: 'border-blue-500/30', text: 'text-blue-400', icon: <Wrench size={18} /> },
-        perda: { color: 'rose', border: 'border-rose-500/30', text: 'text-rose-400', icon: <PackageX size={18} /> }
+        venda: { border: 'border-emerald-500/30', text: 'text-emerald-400', icon: <ShoppingCart size={18} /> },
+        manutencao: { border: 'border-blue-500/30', text: 'text-blue-400', icon: <Wrench size={18} /> },
+        perda: { border: 'border-rose-500/30', text: 'text-rose-400', icon: <PackageX size={18} /> }
     }[activeTab];
 
     return (
@@ -342,7 +407,7 @@ const NewSaleModal: React.FC<{ onClose: () => void; storeEmail: string | null; o
                     </div>
 
                     <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800/80">
-                        {(['venda', 'manutencao', 'perda'] as const).map((tab) => (
+                        {((['venda', 'manutencao', 'perda'] as const)).map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => { setActiveTab(tab); setPaymentMethod('PIX'); }}
@@ -361,10 +426,8 @@ const NewSaleModal: React.FC<{ onClose: () => void; storeEmail: string | null; o
                 {/* Main Content */}
                 <main className="flex-1 flex flex-col lg:flex-row overflow-hidden">
 
-                    {/* Left Column - Work Area */}
+                    {/* Left Column */}
                     <section className="flex-1 overflow-y-auto p-6 space-y-6">
-
-                        {/* Search & Stock Item Selection */}
                         {(activeTab === 'venda' || activeTab === 'perda') && (
                             <div className="space-y-4">
                                 <div className="relative">
@@ -393,7 +456,6 @@ const NewSaleModal: React.FC<{ onClose: () => void; storeEmail: string | null; o
                                     )}
                                 </div>
 
-                                {/* Items Added List */}
                                 <div className="space-y-2">
                                     <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block px-1">Itens da Lista</span>
                                     {(activeTab === 'venda' ? selectedProducts : lossProducts).length === 0 ? (
@@ -425,7 +487,6 @@ const NewSaleModal: React.FC<{ onClose: () => void; storeEmail: string | null; o
                                     ))}
                                 </div>
 
-                                {/* Custom Non-Catalog Item Input */}
                                 {activeTab === 'venda' && (
                                     <div className="bg-slate-950/30 border border-slate-800/80 p-4 rounded-xl flex items-end gap-3">
                                         <div className="flex-1 space-y-1.5">
@@ -440,17 +501,15 @@ const NewSaleModal: React.FC<{ onClose: () => void; storeEmail: string | null; o
                                     </div>
                                 )}
 
-                                {/* Loss Reason Form Area */}
                                 {activeTab === 'perda' && (
                                     <div className="space-y-1.5">
                                         <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider ml-1">Justificativa da Baixa / Perda</label>
-                                        <textarea className="w-full bg-slate-950 border border-slate-800 p-3 rounded-xl text-xs h-20 outline-none text-white placeholder-slate-600 focus:border-slate-700 resize-none" placeholder="Informe o motivo detalhado (Ex: Produto quebrado, vencido, avaria de bancada)..." value={lossReason} onChange={e => setLossReason(e.target.value)} />
+                                        <textarea className="w-full bg-slate-950 border border-slate-800 p-3 rounded-xl text-xs h-20 outline-none text-white placeholder-slate-600 focus:border-slate-700 resize-none" placeholder="Informe o motivo detalhado..." value={lossReason} onChange={e => setLossReason(e.target.value)} />
                                     </div>
                                 )}
                             </div>
                         )}
 
-                        {/* Maintenance Form View */}
                         {activeTab === 'manutencao' && (
                             <div className="bg-slate-950/40 border border-slate-800/80 p-5 rounded-xl space-y-4">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -460,12 +519,12 @@ const NewSaleModal: React.FC<{ onClose: () => void; storeEmail: string | null; o
                                     </div>
                                     <div className="space-y-1.5">
                                         <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Aparelho / Dispositivo</label>
-                                        <input className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white outline-none focus:border-slate-700" placeholder="Ex: iPhone 13 Pro Max Blue" value={maint.device} onChange={e => setMaint({ ...maint, device: e.target.value })} />
+                                        <input className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white outline-none focus:border-slate-700" placeholder="Ex: iPhone 13 Pro Max" value={maint.device} onChange={e => setMaint({ ...maint, device: e.target.value })} />
                                     </div>
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Laudo Técnico / Serviço Realizado</label>
-                                    <input className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white outline-none focus:border-slate-700" placeholder="Ex: Troca de tela frontal e conector de carga danificado" value={maint.problem} onChange={e => setMaint({ ...maint, problem: e.target.value })} />
+                                    <input className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white outline-none focus:border-slate-700" placeholder="Ex: Troca de tela" value={maint.problem} onChange={e => setMaint({ ...maint, problem: e.target.value })} />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4 pt-2">
                                     <div className="space-y-1.5">
@@ -481,118 +540,87 @@ const NewSaleModal: React.FC<{ onClose: () => void; storeEmail: string | null; o
                         )}
                     </section>
 
-                    {/* Right Column - Financial Summary & Checkout */}
+                    {/* Right Column - Summary & Checkout */}
                     <aside className="w-full lg:w-[380px] bg-slate-950/40 border-t lg:border-t-0 lg:border-l border-slate-800/60 p-6 flex flex-col gap-6 justify-between overflow-y-auto">
                         <div className="space-y-6">
-
-                            {/* Financial Calculations Box */}
                             <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-3">
-                                <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                                    <Info size={12} /> Painel Financeiro
-                                </h3>
-
-                                <div className="space-y-2 text-xs">
-                                    {activeTab === 'venda' ? (
-                                        <>
-                                            <div className="flex justify-between text-slate-400">
-                                                <span>Subtotal</span>
-                                                <span className="font-mono">R$ {subtotal.toFixed(2)}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center pt-1">
-                                                <span className="text-slate-400">Desconto Aplicado</span>
-                                                <div className="relative">
-                                                    <input className="w-24 bg-slate-950 border border-slate-800 rounded-md py-1 px-2 text-right text-amber-500 font-mono text-xs outline-none focus:border-slate-700" value={discountInput} placeholder="0,00" onChange={e => { const [n, d] = formatCurrencyInput(e.target.value); setDiscountInput(d); setDiscount(n); }} />
-                                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-600 font-bold">R$</span>
-                                                </div>
-                                            </div>
-                                            <div className="pt-3 mt-2 border-t border-slate-800/60 flex justify-between items-baseline">
-                                                <span className="text-white text-xs font-medium">Total Líquido</span>
-                                                <span className="text-2xl font-bold text-emerald-400 font-mono tracking-tight">R$ {totalVenda.toFixed(2)}</span>
-                                            </div>
-                                        </>
-                                    ) : activeTab === 'manutencao' ? (
-                                        <>
-                                            <div className="flex justify-between text-slate-400">
-                                                <span>Custo da Peça</span>
-                                                <span className="font-mono text-rose-400">- R$ {maint.partCost.toFixed(2)}</span>
-                                            </div>
-                                            <div className="pt-3 border-t border-slate-800/60 flex justify-between items-baseline">
-                                                <span className="text-white text-xs font-medium">Total de Caixa</span>
-                                                <span className="text-2xl font-bold text-emerald-400 font-mono tracking-tight">R$ {maint.totalService.toFixed(2)}</span>
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <div className="py-2 flex justify-between items-baseline">
-                                            <span className="text-slate-400 text-xs">Prejuízo de Estoque</span>
-                                            <span className="text-2xl font-bold text-rose-500 font-mono tracking-tight">R$ {totalLoss.toFixed(2)}</span>
-                                        </div>
-                                    )}
+                                <div className="flex justify-between text-xs text-slate-400">
+                                    <span>Subtotal</span>
+                                    <span className="font-mono">R$ {(activeTab === 'venda' ? subtotal : activeTab === 'manutencao' ? maint.totalService : totalLoss).toFixed(2)}</span>
+                                </div>
+                                {activeTab === 'venda' && (
+                                    <div className="flex justify-between items-center text-xs text-slate-400">
+                                        <span>Desconto</span>
+                                        <input
+                                            className="w-20 bg-slate-950 border border-slate-800 p-1 rounded font-mono text-right text-rose-400 text-xs focus:border-slate-700 outline-none"
+                                            placeholder="R$ 0,00"
+                                            value={discountInput}
+                                            onChange={e => {
+                                                const [v, s] = formatCurrencyInput(e.target.value);
+                                                setDiscountInput(s);
+                                                setDiscount(v);
+                                            }}
+                                        />
+                                    </div>
+                                )}
+                                <div className="h-px bg-slate-800/60 my-1" />
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs font-semibold text-white uppercase tracking-wider">Total Geral</span>
+                                    <span className="text-lg font-bold font-mono text-emerald-400">R$ {totalFinalCalculado.toFixed(2)}</span>
                                 </div>
                             </div>
 
-                            {/* Intelligent Payment Selector */}
                             {activeTab !== 'perda' && (
-                                <div className="space-y-2.5">
-                                    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider ml-1">Método de Liquidação</label>
-
-                                    <div className="grid grid-cols-2 gap-1.5 text-[10px]">
-                                        <button onClick={() => setPaymentMethod('PIX')} className={`flex items-center gap-2 p-2.5 rounded-lg border font-medium transition-all ${paymentMethod === 'PIX' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-950/40 border-slate-900 text-slate-500 hover:text-slate-400'}`}>
-                                            <QrCode size={13} /> PIX
-                                        </button>
-                                        <button onClick={() => setPaymentMethod('Cartão')} className={`flex items-center gap-2 p-2.5 rounded-lg border font-medium transition-all ${paymentMethod === 'Cartão' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-950/40 border-slate-900 text-slate-500 hover:text-slate-400'}`}>
-                                            <CreditCard size={13} /> CARTÃO
-                                        </button>
-                                        <button onClick={() => setPaymentMethod('Dinheiro')} className={`flex items-center gap-2 p-2.5 rounded-lg border font-medium transition-all ${paymentMethod === 'Dinheiro' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-950/40 border-slate-900 text-slate-500 hover:text-slate-400'}`}>
-                                            <Banknote size={13} /> DINHEIRO
-                                        </button>
-                                        <button onClick={() => setPaymentMethod('Múltiplos')} className={`flex items-center gap-2 p-2.5 rounded-lg border font-medium transition-all ${paymentMethod === 'Múltiplos' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-950/40 border-slate-900 text-slate-500 hover:text-slate-400'}`}>
-                                            <Layers3 size={13} /> MÚLTIPLOS
-                                        </button>
+                                <div className="space-y-4">
+                                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block px-1">Método de Pagamento</span>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {((['PIX', 'Cartão', 'Dinheiro', 'Múltiplos', 'Fiado'] as const)).map(method => (
+                                            <button
+                                                key={method}
+                                                onClick={() => setPaymentMethod(method)}
+                                                className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 transition-all ${paymentMethod === method ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:text-white'}`}
+                                            >
+                                                {method === 'PIX' && <QrCode size={14} />}
+                                                {method === 'Cartão' && <CreditCard size={14} />}
+                                                {method === 'Dinheiro' && <Banknote size={14} />}
+                                                {method === 'Múltiplos' && <Layers size={14} />}
+                                                {method === 'Fiado' && <UserX size={14} />}
+                                                <span className="text-[10px] font-medium font-sans">{method}</span>
+                                            </button>
+                                        ))}
                                     </div>
 
-                                    <button onClick={() => setPaymentMethod('Fiado')} className={`w-full flex items-center justify-center gap-2 p-2.5 rounded-lg border text-[10px] font-medium transition-all ${paymentMethod === 'Fiado' ? 'bg-rose-950/20 border-rose-800/50 text-rose-400' : 'bg-slate-950/40 border-slate-900 text-slate-500 hover:text-slate-400'}`}>
-                                        <UserPlus size={13} /> VENDER FIADO (CONTA CLIENTE)
-                                    </button>
-
-                                    {/* Conditional Form Fields based on selection */}
-                                    {paymentMethod === 'Múltiplos' && (
-                                        <div className="bg-slate-950/60 border border-slate-800 p-3 rounded-xl grid grid-cols-3 gap-2 mt-2 animate-in fade-in zoom-in-95 duration-150">
-                                            <div className="space-y-1">
-                                                <span className="text-[8px] font-medium text-slate-500 uppercase tracking-wide">Pix un.</span>
-                                                <input type="text" placeholder="0,00" value={multiPixInput} className="w-full font-mono bg-slate-950 border border-slate-800 rounded-md p-1.5 text-xs text-white outline-none" onChange={e => {
-                                                    const [v, s] = formatCurrencyInput(e.target.value); setMultiPixInput(s); setPayments({ ...payments, pix: v });
-                                                }} />
+                                    {/* Sub-interface para Múltiplos Formas de Pagamento */}
+                                    {paymentMethod === "Múltiplos" && (
+                                        <div className="bg-slate-950/50 border border-slate-800 p-3 rounded-xl space-y-3.5">
+                                            <div className="flex justify-between items-center gap-2">
+                                                <span className="text-xs text-slate-400 flex items-center gap-1"><QrCode size={12} /> PIX</span>
+                                                <input className="w-28 bg-slate-900 border border-slate-800 p-1.5 rounded font-mono text-right text-xs text-white outline-none" placeholder="R$ 0,00" value={multiPixInput} onChange={e => { const [v, s] = formatCurrencyInput(e.target.value); setMultiPixInput(s); setPayments(p => ({ ...p, pix: v })); }} />
                                             </div>
-                                            <div className="space-y-1">
-                                                <span className="text-[8px] font-medium text-slate-500 uppercase tracking-wide">Cartão un.</span>
-                                                <input type="text" placeholder="0,00" value={multiCartaoInput} className="w-full font-mono bg-slate-950 border border-slate-800 rounded-md p-1.5 text-xs text-white outline-none" onChange={e => {
-                                                    const [v, s] = formatCurrencyInput(e.target.value); setMultiCartaoInput(s); setPayments({ ...payments, cartao: v });
-                                                }} />
+                                            <div className="flex justify-between items-center gap-2">
+                                                <span className="text-xs text-slate-400 flex items-center gap-1"><CreditCard size={12} /> Cartão</span>
+                                                <input className="w-28 bg-slate-900 border border-slate-800 p-1.5 rounded font-mono text-right text-xs text-white outline-none" placeholder="R$ 0,00" value={multiCartaoInput} onChange={e => { const [v, s] = formatCurrencyInput(e.target.value); setMultiCartaoInput(s); setPayments(p => ({ ...p, cartao: v })); }} />
                                             </div>
-                                            <div className="space-y-1">
-                                                <span className="text-[8px] font-medium text-slate-500 uppercase tracking-wide">Dinheiro</span>
-                                                <input type="text" placeholder="0,00" value={multiDinheiroInput} className="w-full font-mono bg-slate-950 border border-slate-800 rounded-md p-1.5 text-xs text-white outline-none" onChange={e => {
-                                                    const [v, s] = formatCurrencyInput(e.target.value); setMultiDinheiroInput(s); setPayments({ ...payments, dinheiro: v });
-                                                }} />
+                                            <div className="flex justify-between items-center gap-2">
+                                                <span className="text-xs text-slate-400 flex items-center gap-1"><Banknote size={12} /> Dinheiro</span>
+                                                <input className="w-28 bg-slate-900 border border-slate-800 p-1.5 rounded font-mono text-right text-xs text-white outline-none" placeholder="R$ 0,00" value={multiDinheiroInput} onChange={e => { const [v, s] = formatCurrencyInput(e.target.value); setMultiDinheiroInput(s); setPayments(p => ({ ...p, dinheiro: v })); }} />
+                                            </div>
+                                            <div className="h-px bg-slate-800/50" />
+                                            <div className="flex justify-between text-[10px]">
+                                                <span className="text-slate-500">Total Informado:</span>
+                                                <span className={`font-mono font-bold ${Math.abs(totalMultiPreenchido - totalFinalCalculado) < 0.01 ? 'text-emerald-400' : 'text-rose-400'}`}>R$ {totalMultiPreenchido.toFixed(2)} / R$ {totalFinalCalculado.toFixed(2)}</span>
                                             </div>
                                         </div>
                                     )}
 
-                                    {paymentMethod === 'Fiado' && (
-                                        <div className="bg-slate-950/60 border border-rose-950/40 p-3 rounded-xl space-y-2 mt-2 animate-in fade-in zoom-in-95 duration-150">
-                                            <div className="space-y-1">
-                                                <span className="text-[8px] font-semibold text-rose-400 uppercase tracking-wider">Nome de devedor</span>
-                                                <input type="text" placeholder="Nome completo do cliente" value={payments.fiado.nome} className="w-full bg-slate-950 border border-slate-800 rounded-md p-1.5 text-xs text-white outline-none" onChange={e => setPayments({ ...payments, fiado: { ...payments.fiado, nome: e.target.value, valor: totalFinalCalculado } })} />
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-2">
-                                                <div className="space-y-1">
-                                                    <span className="text-[8px] font-semibold text-rose-400 uppercase tracking-wider">WhatsApp</span>
-                                                    <input type="text" placeholder="(00) 00000-0000" value={payments.fiado.whatsapp} className="w-full bg-slate-950 border border-slate-800 rounded-md p-1.5 text-xs text-white outline-none" onChange={e => setPayments({ ...payments, fiado: { ...payments.fiado, whatsapp: e.target.value } })} />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <span className="text-[8px] font-semibold text-rose-400 uppercase tracking-wider flex items-center gap-1"><Calendar size={10} /> Vencimento</span>
-                                                    <input type="date" value={payments.fiado.data} className="w-full bg-slate-950 border border-slate-800 rounded-md p-1.5 text-xs text-white outline-none" onChange={e => setPayments({ ...payments, fiado: { ...payments.fiado, data: e.target.value } })} />
-                                                </div>
+                                    {/* Sub-interface para Fiado */}
+                                    {paymentMethod === "Fiado" && (
+                                        <div className="bg-slate-950/50 border border-slate-800 p-3 rounded-xl space-y-2.5">
+                                            <input className="w-full bg-slate-900 border border-slate-800 p-2 rounded text-xs text-white outline-none" placeholder="Nome do Devedor" value={payments.fiado.nome} onChange={e => setPayments(p => ({ ...p, fiado: { ...p.fiado, nome: e.target.value } }))} />
+                                            <input className="w-full bg-slate-900 border border-slate-800 p-2 rounded text-xs text-white outline-none" placeholder="WhatsApp (Opcional)" value={payments.fiado.whatsapp} onChange={e => setPayments(p => ({ ...p, fiado: { ...p.fiado, whatsapp: e.target.value } }))} />
+                                            <div className="flex gap-2">
+                                                <input type="date" className="flex-1 bg-slate-900 border border-slate-800 p-2 rounded text-xs text-slate-300 outline-none" value={payments.fiado.data} onChange={e => setPayments(p => ({ ...p, fiado: { ...p.fiado, data: e.target.value } }))} />
+                                                <input className="w-28 bg-slate-900 border border-slate-800 p-2 rounded font-mono text-right text-xs text-white outline-none" placeholder="R$ 0,00" value={fiadoValorInput} onChange={e => { const [v, s] = formatCurrencyInput(e.target.value); setFiadoValorInput(s); setPayments(p => ({ ...p, fiado: { ...p.fiado, valor: v } })); }} />
                                             </div>
                                         </div>
                                     )}
@@ -600,17 +628,15 @@ const NewSaleModal: React.FC<{ onClose: () => void; storeEmail: string | null; o
                             )}
                         </div>
 
-                        {/* CTA Finish Button */}
-                        <div className="pt-4 border-t border-slate-800/60">
-                            <button
-                                onClick={handleFinish}
-                                disabled={isLoading}
-                                className={`w-full py-3 px-4 rounded-xl text-xs font-semibold uppercase tracking-wider text-white shadow-lg transition-all ${activeTab === 'perda' ? 'bg-rose-600 hover:bg-rose-500' : 'bg-emerald-600 hover:bg-emerald-500'} disabled:opacity-40 disabled:cursor-not-allowed`}
-                            >
-                                {isLoading ? "Gravando dados no sistema..." : "Confirmar e Lançar Operação"}
-                            </button>
-                        </div>
+                        <button
+                            onClick={handleFinish}
+                            disabled={isLoading || totalFinalCalculado <= 0}
+                            className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-600 text-white font-semibold rounded-xl text-xs uppercase tracking-wider transition-all shadow-lg shadow-emerald-950/20"
+                        >
+                            {isLoading ? "Processando..." : "Concluir Lançamento"}
+                        </button>
                     </aside>
+
                 </main>
             </div>
         </div>

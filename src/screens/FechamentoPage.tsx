@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { 
-    Plus, Trash2, Loader2, Package, Wallet, 
+import {
+    Plus, Trash2, Loader2, Package, Wallet,
     CheckCircle2, FileText, XCircle, ArrowUpCircle, ArrowDownCircle,
     AlertCircle, Landmark, X
 } from "lucide-react";
 
-import { 
-    collection, getDocs, query, where, addDoc, 
-    serverTimestamp, deleteDoc, doc, updateDoc, limit, orderBy, Timestamp 
+import {
+    collection, getDocs, query, where, addDoc,
+    serverTimestamp, deleteDoc, doc, updateDoc, limit, orderBy, Timestamp
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
 
@@ -38,7 +38,7 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
 
     const [cashOpenedAt, setCashOpenedAt] = useState("");
     const [initialBalance, setInitialBalance] = useState(0);
-    const [tempInitialBalance, setTempInitialBalance] = useState<string>(""); 
+    const [tempInitialBalance, setTempInitialBalance] = useState<string>("");
 
     const [summary, setSummary] = useState({ pix: 0, cartao: 0, dinheiro: 0, fiado: 0 });
     const [soldItems, setSoldItems] = useState<SoldItem[]>([]);
@@ -53,7 +53,7 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
 
     const fetchData = useCallback(async (sessionId: string, openedAt: Timestamp) => {
         if (!storeEmail || !sessionId) return;
-        
+
         try {
             const startOfDay = new Date();
             startOfDay.setHours(0, 0, 0, 0);
@@ -66,20 +66,30 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
                 orderBy("timestamp", "desc")
             );
             const salesSnap = await getDocs(qSales);
-            
+
             let pix = 0, cartao = 0, din = 0, fiado = 0;
             const itemsMap: Record<string, number> = {};
 
             salesSnap.forEach(doc => {
                 const d = doc.data();
+
+                if (
+                    d.status === "refunded" ||
+                    d.status === "cancelled"
+                ) {
+                    return;
+                }
+
                 const valor = Number(d.total) || 0;
+
                 if (d.paymentMethod === "PIX") pix += valor;
                 else if (d.paymentMethod === "Cartão") cartao += valor;
                 else if (d.paymentMethod === "Dinheiro") din += valor;
                 else if (d.paymentMethod === "Fiado") fiado += valor;
 
                 d.items?.forEach((it: any) => {
-                    itemsMap[it.name] = (itemsMap[it.name] || 0) + (it.quantity || 1);
+                    itemsMap[it.name] =
+                        (itemsMap[it.name] || 0) + (it.quantity || 1);
                 });
             });
 
@@ -92,7 +102,7 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
                 where("sessionId", "==", sessionId),
                 orderBy("timestamp", "asc")
             );
-            
+
             const movSnap = await getDocs(qMov);
             setMovements(movSnap.docs.map(d => ({
                 id: d.id,
@@ -102,8 +112,8 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
                 time: d.data().timestamp?.toDate()?.toLocaleTimeString("pt-BR") || "--:--"
             })));
 
-        } catch (e) { 
-            console.error("Erro ao carregar dados:", e); 
+        } catch (e) {
+            console.error("Erro ao carregar dados:", e);
         }
     }, [storeEmail]);
 
@@ -112,13 +122,13 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
         setIsLoading(true);
         try {
             const q = query(
-                collection(db, "cash_sessions"), 
-                where("store", "==", storeEmail), 
-                where("status", "==", "open"), 
+                collection(db, "cash_sessions"),
+                where("store", "==", storeEmail),
+                where("status", "==", "open"),
                 limit(1)
             );
             const snap = await getDocs(q);
-            
+
             if (!snap.empty) {
                 const session = snap.docs[0];
                 const data = session.data();
@@ -129,21 +139,21 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
                 setInitialBalance(Number(data.initialBalance) || 0);
                 setCashOpenedAt(sessionOpenedAt?.toDate()?.toLocaleString("pt-BR") || "Data indisponível");
                 setIsCashOpen(true);
-                
+
                 await fetchData(session.id, sessionOpenedAt);
-            } else { 
-                setIsCashOpen(false); 
+            } else {
+                setIsCashOpen(false);
                 setCurrentSessionId(null);
             }
-        } catch (e) { 
-            console.error(e); 
-        } finally { 
-            setIsLoading(false); 
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsLoading(false);
         }
     }, [storeEmail, fetchData]);
 
-    useEffect(() => { 
-        checkActiveSession(); 
+    useEffect(() => {
+        checkActiveSession();
     }, [checkActiveSession]);
 
     const totalOut = movements.filter(m => m.type === 'out').reduce((acc, i) => acc + i.amount, 0);
@@ -159,7 +169,7 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
 
         docPdf.setFontSize(18);
         docPdf.text("RELATÓRIO DE FECHAMENTO - SOLUCELL", 14, 20);
-        
+
         docPdf.setFontSize(10);
         docPdf.text(`Loja: ${storeEmail}`, 14, 28);
         docPdf.text(`Abertura: ${cashOpenedAt} | Fechamento: ${now}`, 14, 33);
@@ -212,8 +222,8 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
         try {
             generateDetailedPDF(physicalCash, currentDifference);
             if (currentSessionId) {
-                await updateDoc(doc(db, "cash_sessions", currentSessionId), { 
-                    status: "closed", 
+                await updateDoc(doc(db, "cash_sessions", currentSessionId), {
+                    status: "closed",
                     closedAt: serverTimestamp(),
                     expected: saldoFinalGaveta,
                     physical: physicalCash,
@@ -226,10 +236,10 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
             setCurrentSessionId(null);
             setMovements([]);
             setSummary({ pix: 0, cartao: 0, dinheiro: 0, fiado: 0 });
-        } catch (e) { 
-            alert("Erro ao fechar o caixa."); 
-        } finally { 
-            setIsClosing(false); 
+        } catch (e) {
+            alert("Erro ao fechar o caixa.");
+        } finally {
+            setIsClosing(false);
         }
     };
 
@@ -238,30 +248,30 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
         if (!newDesc || isNaN(numericValue) || !currentSessionId || !openedAtTimestamp) {
             return alert("Preencha os campos corretamente.");
         }
-        
+
         try {
-            await addDoc(collection(db, "outflows"), { 
-                store: storeEmail, 
-                description: newDesc, 
-                amount: numericValue, 
-                type: type, 
+            await addDoc(collection(db, "outflows"), {
+                store: storeEmail,
+                description: newDesc,
+                amount: numericValue,
+                type: type,
                 sessionId: currentSessionId,
-                timestamp: serverTimestamp() 
+                timestamp: serverTimestamp()
             });
-            setNewDesc(""); 
-            setNewAmount(""); 
+            setNewDesc("");
+            setNewAmount("");
             await fetchData(currentSessionId, openedAtTimestamp);
-        } catch (e) { 
-            alert("Erro ao salvar."); 
+        } catch (e) {
+            alert("Erro ao salvar.");
         }
     };
 
     const handleDeleteMovement = async (id: string) => {
-        if(!confirm("Excluir esta movimentação?")) return;
+        if (!confirm("Excluir esta movimentação?")) return;
         try {
             await deleteDoc(doc(db, "outflows", id));
-            if(currentSessionId && openedAtTimestamp) await fetchData(currentSessionId, openedAtTimestamp);
-        } catch(e) {
+            if (currentSessionId && openedAtTimestamp) await fetchData(currentSessionId, openedAtTimestamp);
+        } catch (e) {
             alert("Erro ao deletar.");
         }
     };
@@ -286,28 +296,28 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
                             <div>
                                 <h3 className="text-white font-black text-[10px] uppercase mb-4 tracking-widest">Abertura de Turno</h3>
                                 <p className="text-xs text-slate-400 mb-6">Informe o montante em dinheiro separado para troco e fundo de gaveta.</p>
-                                
+
                                 <div className="space-y-2 mb-4">
                                     <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest block pl-1">Fundo de Caixa</label>
-                                    <input 
-                                        type="text" 
-                                        placeholder="R$ 0,00" 
+                                    <input
+                                        type="text"
+                                        placeholder="R$ 0,00"
                                         className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-xl font-black text-white outline-none focus:border-blue-600 transition-all"
-                                        value={tempInitialBalance} 
+                                        value={tempInitialBalance}
                                         onChange={e => setTempInitialBalance(e.target.value)}
                                     />
                                 </div>
                             </div>
 
                             <div className="flex items-center gap-2 text-slate-500 bg-slate-950/40 px-4 py-2 rounded-xl border border-slate-800 text-[10px] font-bold uppercase">
-                                <AlertCircle size={14} className="text-blue-500"/> Defina o valor para liberar o terminal.
+                                <AlertCircle size={14} className="text-blue-500" /> Defina o valor para liberar o terminal.
                             </div>
                         </div>
 
                         {/* Card do Lado Direito - Minimalista e Alinhado */}
                         <div className="bg-slate-900/30 border border-slate-800 rounded-3xl p-8 flex flex-col justify-between relative">
-                            <div className="absolute top-6 right-6 text-slate-800"><Wallet size={24}/></div>
-                            
+                            <div className="absolute top-6 right-6 text-slate-800"><Wallet size={24} /></div>
+
                             <div>
                                 <h3 className="text-white font-black text-[10px] uppercase mb-4 tracking-widest">Confirmação</h3>
                                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full text-[9px] font-black text-amber-400 uppercase tracking-wider mb-2">
@@ -316,16 +326,16 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
                                 <p className="text-xs text-slate-400 max-w-xs">Após confirmar, o terminal estará pronto para registrar novas vendas e fluxos de caixa.</p>
                             </div>
 
-                            <button 
+                            <button
                                 onClick={async () => {
                                     const val = parseFloat(tempInitialBalance.replace(',', '.'));
                                     if (isNaN(val)) return alert("Por favor, insira um valor inicial válido.");
                                     setIsOpening(true);
                                     try {
                                         await addDoc(collection(db, "cash_sessions"), {
-                                            store: storeEmail, 
-                                            initialBalance: val, 
-                                            openedAt: serverTimestamp(), 
+                                            store: storeEmail,
+                                            initialBalance: val,
+                                            openedAt: serverTimestamp(),
                                             status: "open"
                                         });
                                         setTempInitialBalance("");
@@ -339,7 +349,7 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
                                 disabled={isOpening || !tempInitialBalance}
                                 className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-30 disabled:hover:bg-blue-600 text-white font-black py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 active:scale-98 transition-all uppercase text-xs tracking-wider mt-6"
                             >
-                                {isOpening ? <Loader2 className="animate-spin text-white" size={16}/> : <>INICIAR OPERAÇÃO</>}
+                                {isOpening ? <Loader2 className="animate-spin text-white" size={16} /> : <>INICIAR OPERAÇÃO</>}
                             </button>
                         </div>
                     </div>
@@ -391,8 +401,8 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
                                 <input placeholder="Valor" value={newAmount} onChange={e => setNewAmount(e.target.value)} className="w-24 bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white outline-none" />
                             </div>
                             <div className="grid grid-cols-2 gap-2">
-                                <button onClick={() => handleAddMovement('in')} className="bg-emerald-600 p-3 rounded-xl font-bold text-[10px] flex items-center justify-center gap-2 transition-all"><ArrowUpCircle size={14}/> ENTRADA</button>
-                                <button onClick={() => handleAddMovement('out')} className="bg-rose-600 p-3 rounded-xl font-bold text-[10px] flex items-center justify-center gap-2 transition-all"><ArrowDownCircle size={14}/> SAÍDA</button>
+                                <button onClick={() => handleAddMovement('in')} className="bg-emerald-600 p-3 rounded-xl font-bold text-[10px] flex items-center justify-center gap-2 transition-all"><ArrowUpCircle size={14} /> ENTRADA</button>
+                                <button onClick={() => handleAddMovement('out')} className="bg-rose-600 p-3 rounded-xl font-bold text-[10px] flex items-center justify-center gap-2 transition-all"><ArrowDownCircle size={14} /> SAÍDA</button>
                             </div>
                         </div>
                         <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
@@ -404,7 +414,7 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
                                     </div>
                                     <div className="flex gap-4 items-center">
                                         <p className={m.type === 'in' ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>R$ {m.amount.toFixed(2)}</p>
-                                        <button onClick={() => handleDeleteMovement(m.id)} className="text-slate-600 hover:text-rose-500"><Trash2 size={14}/></button>
+                                        <button onClick={() => handleDeleteMovement(m.id)} className="text-slate-600 hover:text-rose-500"><Trash2 size={14} /></button>
                                     </div>
                                 </div>
                             ))}
@@ -412,18 +422,18 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
                     </div>
 
                     <div className="bg-slate-900 border-2 border-slate-800 rounded-[2.5rem] p-8 text-center flex flex-col justify-center relative">
-                        <div className="absolute top-4 right-6 text-slate-700"><Landmark size={40}/></div>
+                        <div className="absolute top-4 right-6 text-slate-700"><Landmark size={40} /></div>
                         <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-2">Total Esperado em Dinheiro</p>
                         <p className="text-5xl font-black text-white italic mb-4">R$ {saldoFinalGaveta.toFixed(2)}</p>
                         <div className="flex items-center justify-center gap-2 text-emerald-500 font-black text-[10px] uppercase tracking-widest">
-                            <CheckCircle2 size={14}/> Sistema atualizado
+                            <CheckCircle2 size={14} /> Sistema atualizado
                         </div>
                     </div>
                 </div>
 
                 <div className="bg-slate-900/30 border border-slate-800 rounded-3xl overflow-hidden">
                     <div className="p-4 bg-slate-900/50 border-b border-slate-800 text-[10px] font-black uppercase flex items-center gap-2">
-                        <Package size={14} className="text-blue-500"/> Itens Vendidos no Turno
+                        <Package size={14} className="text-blue-500" /> Itens Vendidos no Turno
                     </div>
                     <div className="max-h-60 overflow-y-auto custom-scrollbar">
                         <table className="w-full text-left">
@@ -441,14 +451,14 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
 
                 <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4">
                     <div className="flex items-center gap-2 text-rose-500 bg-rose-500/10 px-4 py-2 rounded-full border border-rose-500/20">
-                        <AlertCircle size={14}/>
+                        <AlertCircle size={14} />
                         <p className="text-[10px] font-black uppercase">Fiado Pendente: R$ {summary.fiado.toFixed(2)}</p>
                     </div>
-                    <button 
-                        onClick={() => setIsClosingModalOpen(true)} 
+                    <button
+                        onClick={() => setIsClosingModalOpen(true)}
                         className="w-full md:w-auto bg-blue-600 hover:bg-blue-500 text-white font-black px-10 py-5 rounded-2xl shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all"
                     >
-                        <FileText size={20}/> ENCERRAR CAIXA
+                        <FileText size={20} /> ENCERRAR CAIXA
                     </button>
                 </div>
             </div>
@@ -457,11 +467,11 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
             {isClosingModalOpen && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
                     <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] w-full max-w-lg p-8 relative shadow-2xl">
-                        <button 
+                        <button
                             onClick={() => {
                                 setIsClosingModalOpen(false);
                                 setPhysicalCashInput("");
-                            }} 
+                            }}
                             className="absolute top-6 right-6 text-slate-400 hover:text-white transition-all"
                         >
                             <X size={20} />
@@ -480,9 +490,9 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
 
                         <div className="space-y-2 mb-6">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block pl-1">Valor Contado (Dinheiro)</label>
-                            <input 
-                                type="text" 
-                                placeholder="R$ 0,00" 
+                            <input
+                                type="text"
+                                placeholder="R$ 0,00"
                                 value={physicalCashInput}
                                 onChange={e => setPhysicalCashInput(e.target.value)}
                                 className="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl p-4 text-2xl font-black text-white text-center focus:border-blue-600 outline-none transition-all"
@@ -492,13 +502,12 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
 
                         {/* Painel Informativo da Diferença em tempo real */}
                         {physicalCashInput.trim() !== "" && (
-                            <div className={`p-4 rounded-2xl border text-center mb-6 transition-all ${
-                                currentDifference === 0 
-                                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
-                                : currentDifference > 0 
-                                ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' 
-                                : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-                            }`}>
+                            <div className={`p-4 rounded-2xl border text-center mb-6 transition-all ${currentDifference === 0
+                                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                                    : currentDifference > 0
+                                        ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                                        : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                                }`}>
                                 <p className="text-xs font-black uppercase tracking-wider">
                                     {currentDifference === 0 && "Caixa perfeito! Tudo bateu."}
                                     {currentDifference > 0 && `Sobra no caixa: R$ ${currentDifference.toFixed(2)}`}
@@ -508,7 +517,7 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
                         )}
 
                         <div className="grid grid-cols-2 gap-3">
-                            <button 
+                            <button
                                 onClick={() => {
                                     setIsClosingModalOpen(false);
                                     setPhysicalCashInput("");
@@ -517,12 +526,12 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
                             >
                                 Cancelar
                             </button>
-                            <button 
+                            <button
                                 onClick={handleExecuteCloseCash}
                                 disabled={isClosing || !physicalCashInput}
                                 className="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:hover:bg-blue-600 text-white font-black py-4 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all"
                             >
-                                {isClosing ? <Loader2 className="animate-spin text-white" size={16}/> : "CONFIRMAR E FECHAR"}
+                                {isClosing ? <Loader2 className="animate-spin text-white" size={16} /> : "CONFIRMAR E FECHAR"}
                             </button>
                         </div>
                     </div>

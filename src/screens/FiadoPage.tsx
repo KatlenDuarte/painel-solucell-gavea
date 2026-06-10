@@ -51,6 +51,7 @@ export default function FiadoPage({
 }) {
 
     const [fiados, setFiados] = useState<FiadoSale[]>([]);
+    const [editingNote, setEditingNote] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(true);
 
     const [searchTerm, setSearchTerm] = useState("");
@@ -77,7 +78,7 @@ export default function FiadoPage({
             const statusFilter =
                 activeTab === "pendentes"
                     ? "pending"
-                    : "completed";
+                    : "fiado_quitado";
 
             const q = query(
                 collection(db, "sales"),
@@ -144,7 +145,7 @@ export default function FiadoPage({
 
                         note:
                             data.note ||
-                            "Sem observações.",
+                            "DATA PREVISTA PAGAMENTO: ",
 
                         status: data.status,
 
@@ -209,6 +210,21 @@ export default function FiadoPage({
         (acc, cur) => acc + cur.total,
         0
     );
+
+    const handleSaveNote = async (saleId: string) => {
+        try {
+            await updateDoc(doc(db, "sales", saleId), {
+                note: editingNote[saleId]
+            });
+
+            alert("Observação salva com sucesso!");
+
+            fetchFiados();
+        } catch (error) {
+            console.error(error);
+            alert("Erro ao salvar observação.");
+        }
+    };
 
     const handleMarkAsPaid = async (id: string) => {
 
@@ -570,16 +586,38 @@ export default function FiadoPage({
 
                                         {/* OBS */}
 
-                                        <div className="bg-slate-950/40 border border-slate-800/40 rounded-lg p-3">
+                                        {/* OBS */}
+                                        <div className="bg-slate-950/40 border border-slate-800/60 rounded-xl p-4 backdrop-blur-sm">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                                                    Observação
+                                                </p>
+                                                <span className="text-[10px] text-slate-500">
+                                                    {((editingNote[sale.id] ?? sale.note) || '').length} caracteres
+                                                </span>
+                                            </div>
 
-                                            <p className="text-[9px] uppercase font-bold text-slate-500 tracking-wider mb-1">
-                                                Observação
-                                            </p>
+                                            <textarea
+                                                value={editingNote[sale.id] ?? sale.note}
+                                                onChange={(e) =>
+                                                    setEditingNote((prev) => ({
+                                                        ...prev,
+                                                        [sale.id]: e.target.value
+                                                    }))
+                                                }
+                                                placeholder="Digite uma observação para esta venda..."
+                                                className="w-full bg-slate-900/60 border border-slate-800 rounded-lg p-3 text-xs text-slate-200 outline-none placeholder:text-slate-600 focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30 transition-all resize-none min-h-[70px]"
+                                                rows={3}
+                                            />
 
-                                            <p className="text-xs text-slate-400">
-                                                {sale.note}
-                                            </p>
-
+                                            <div className="flex justify-end mt-2.5">
+                                                <button
+                                                    onClick={() => handleSaveNote(sale.id)}
+                                                    className="bg-cyan-500/10 hover:bg-cyan-600 border border-cyan-500/20 hover:border-cyan-500 text-cyan-400 hover:text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-all duration-200 active:scale-[0.98]"
+                                                >
+                                                    Salvar Observação
+                                                </button>
+                                            </div>
                                         </div>
 
                                     </div>

@@ -61,6 +61,9 @@ export default function ProductsContent() {
     const [isEditStockModalOpen, setIsEditStockModalOpen] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
+    const [isPrintConfigOpen, setIsPrintConfigOpen] = useState(false);
+    const [startPosition, setStartPosition] = useState(1);
+
     // 🌟 ESTADOS DA FILA DE IMPRESSÃO DE ETIQUETAS
     const [labelQueue, setLabelQueue] = useState<LabelItem[]>([]);
     const [isGeneratingLabels, setIsGeneratingLabels] = useState(false);
@@ -124,40 +127,87 @@ export default function ProductsContent() {
         if (effectiveStoreEmail) loadProducts();
     }, [effectiveStoreEmail, loadProducts]);
 
-    // 🌟 ADICIONAR PRODUTO À FILA DE ETIQUETAS
-// 🌟 ADICIONAR PRODUTO À FILA DE ETIQUETAS (AGORA VIA MODAL)
-const handleAddToLabelQueue = (product: Product, customQty?: number) => {
-    if (!product.barcode) {
-        alert("Este produto não possui código de barras cadastrado!");
-        return;
-    }
-
-    // Se não veio uma quantidade definida, abre o modal customizado para coletar
-    if (customQty === undefined) {
-        setProductPendingLabel(product);
-        setIsLabelModalOpen(true);
-        return;
-    }
-
-    const qty = customQty;
-    if (qty <= 0) return;
-
-    setLabelQueue(prev => {
-        const existing = prev.find(item => item.id === product.id);
-        if (existing) {
-            return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + qty } : item);
+    // 🌟 ADICIONAR PRODUTO À FILA DE ETIQUETAS (ATUALIZADO PARA SUPORTAR EDIÇÃO)
+    const handleAddToLabelQueue = async (
+        product: Product,
+        customQty?: number,
+        updatedData?: {
+            newName: string;
+            newPrice: number;
+            newMinStock: number;
+            newStock: number;
+            newCostPrice: number | null;
+            newBarcode: string | null;
         }
-        return [...prev, {
-            id: product.id,
-            name: product.name,
-            brand: product.brand,
-            model: product.model,
-            price: product.price,
-            barcode: product.barcode,
-            quantity: qty
-        }];
-    });
-};
+    ) => {
+        // Se não veio uma quantidade definida, abre o modal enviando o objeto inteiro
+        if (customQty === undefined) {
+            setProductPendingLabel(product);
+            setIsLabelModalOpen(true);
+            return;
+        }
+
+        let targetProduct = product;
+
+        // Se o usuário alterou dados no modal, salva primeiro no Firebase/Service
+        if (updatedData) {
+            try {
+                await updateProduct(product.id, {
+                    name: updatedData.newName,
+                    price: updatedData.newPrice,
+                    minStock: updatedData.newMinStock,
+                    costPrice: updatedData.newCostPrice,
+                    barcode: updatedData.newBarcode,
+                    stock: updatedData.newStock// mantém o estoque atual
+                });
+
+                // Cria um objeto mesclado com os dados novos para ir direto para a impressão atualizado
+                targetProduct = {
+                    ...product,
+                    name: updatedData.newName,
+                    price: updatedData.newPrice,
+                    stock: updatedData.newStock,
+                    minStock: updatedData.newMinStock,
+                    costPrice: updatedData.newCostPrice,
+                    barcode: updatedData.newBarcode,
+                    status: determineStatus(
+                        updatedData.newStock,
+                        updatedData.newMinStock
+                    )
+                };
+
+                // Atualiza a lista local da tabela em background para refletir a mudança visual
+                setProducts(prev => prev.map(p => p.id === product.id ? targetProduct : p));
+            } catch (err) {
+                console.error("Erro ao atualizar produto antes da impressão:", err);
+                alert("Erro ao salvar novos dados do produto, mas prosseguindo com a etiqueta antiga.");
+            }
+        }
+
+        // Validação de segurança pós-edição (caso o código de barras tenha sido apagado ou deixado em branco)
+        if (!targetProduct.barcode) {
+            alert("Este produto não possui código de barras válido para gerar a etiqueta!");
+            return;
+        }
+
+        if (customQty <= 0) return;
+
+        setLabelQueue(prev => {
+            const existing = prev.find(item => item.id === targetProduct.id);
+            if (existing) {
+                return prev.map(item => item.id === targetProduct.id ? { ...item, quantity: item.quantity + customQty } : item);
+            }
+            return [...prev, {
+                id: targetProduct.id,
+                name: targetProduct.name,
+                brand: targetProduct.brand,
+                model: targetProduct.model,
+                price: targetProduct.price,
+                barcode: targetProduct.barcode,
+                quantity: customQty
+            }];
+        });
+    };
 
     // 🌟 CAPTURA GLOBAL DO LEITOR DE CÓDIGO DE BARRAS
     useEffect(() => {
@@ -202,8 +252,9 @@ const handleAddToLabelQueue = (product: Product, customQty?: number) => {
             return;
         }
 
-        const iniciarNaPosicao = Number(window.prompt("Deseja pular etiquetas já usadas nesta folha? Digite de qual posição iniciar (1 a 30):", "1"));
-        if (isNaN(iniciarNaPosicao) || iniciarNaPosicao < 1 || iniciarNaPosicao > 30) return;
+        const iniciarNaPosicao = startPosition;
+
+        if (isNaN(iniciarNaPosicao) || iniciarNaPosicao < 1 || iniciarNaPosicao > 40) return;
 
         setIsGeneratingLabels(true);
 
@@ -214,15 +265,17 @@ const handleAddToLabelQueue = (product: Product, customQty?: number) => {
         });
 
         // Configurações de Margem padrão Folha A4 Pimaco
-        const marginLeft = 7;
-        const marginTop = 12;
-        const labelWidth = 63.5;
-        const labelHeight = 25.4;
-        const gapX = 2.5;
-        const gapY = 0;
 
-        const maxColumns = 3;
-        const maxRows = 10;
+        const maxColumns = 4;
+        const maxRows = 12;
+
+        const labelWidth = 48;   // menor
+        const labelHeight = 22;  // menor
+
+        const gapX = 2;
+        const gapY = 0;
+        const marginLeft = 5;
+        const marginTop = 10;
 
         // Posição inicial baseada na escolha do usuário (ajuste para index 0)
         let currentColumn = (iniciarNaPosicao - 1) % maxColumns;
@@ -263,38 +316,49 @@ const handleAddToLabelQueue = (product: Product, customQty?: number) => {
             const x = marginLeft + currentColumn * (labelWidth + gapX);
             const y = marginTop + currentRow * (labelHeight + gapY);
 
-            // Nome do Produto
-            doc.setFontSize(7.5);
+            // Fundo leve (simulação de card)
+            doc.setFillColor(245, 245, 245);
+            doc.rect(x, y, labelWidth, labelHeight, "F");
+
+            // Nome produto
+            doc.setFontSize(6.5);
             doc.setFont("helvetica", "bold");
             doc.setTextColor(0, 0, 0);
-            doc.text(label.name.substring(0, 32), x + 3, y + 5);
+            doc.text(label.name.substring(0, 28), x + 2, y + 4);
 
-            // Detalhes / Modelo
-            doc.setFontSize(6.5);
+            // Marca / modelo
+            doc.setFontSize(5.5);
             doc.setFont("helvetica", "normal");
             doc.setTextColor(80, 80, 80);
-            doc.text(`${label.brand} ${label.model}`.substring(0, 38), x + 3, y + 9);
+            doc.text(`${label.brand} ${label.model}`.substring(0, 30), x + 2, y + 8);
 
-            // Preço Comercial
-            doc.setFontSize(10);
+            // Preço (destaque)
+            doc.setFontSize(8.5);
             doc.setFont("helvetica", "bold");
-            doc.setTextColor(16, 185, 129); // Cor Verde comercial
-            doc.text(`R$ ${label.price.toFixed(2)}`, x + 3, y + 14);
+            doc.setTextColor(16, 185, 129);
+            doc.text(`R$ ${label.price.toFixed(2)}`, x + 2, y + 12);
 
-            // Desenha a imagem das barras reais
+            // Barcode imagem menor e mais ajustada
             try {
                 const barcodeImgData = await generateBarcodeImage(label.barcode);
-                doc.addImage(barcodeImgData, "PNG", x + 3, y + 16, labelWidth - 6, 6);
+                doc.addImage(
+                    barcodeImgData,
+                    "PNG",
+                    x + 2,
+                    y + 13,
+                    labelWidth - 4,
+                    5
+                );
             } catch (err) {
-                console.error("Falha ao gerar barras gráficas", err);
+                console.error("Erro barcode", err);
             }
 
-            // Código legível por extenso abaixo das barras
-            doc.setFontSize(5.5);
-            doc.setFont("Courier", "normal");
+            // código numérico
+            doc.setFontSize(5);
             doc.setTextColor(0, 0, 0);
-            doc.text(label.barcode, x + (labelWidth / 2), y + 23.5, { align: "center" });
-
+            doc.text(label.barcode, x + labelWidth / 2, y + 20.5, {
+                align: "center"
+            });
             currentColumn++;
             if (currentColumn >= maxColumns) {
                 currentColumn = 0;
@@ -412,7 +476,7 @@ const handleAddToLabelQueue = (product: Product, customQty?: number) => {
                     {/* Botão Dinâmico da Fila de Etiquetas */}
                     {totalLabelsInQueue > 0 && (
                         <button
-                            onClick={exportMixedLabelsPDF}
+                            onClick={() => setIsPrintConfigOpen(true)}
                             disabled={isGeneratingLabels}
                             className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-slate-950 rounded-xl text-xs font-black uppercase transition-all shadow-lg shadow-amber-600/20"
                         >
@@ -511,8 +575,8 @@ const handleAddToLabelQueue = (product: Product, customQty?: number) => {
                                         <p className="text-slate-500 text-[11px] mt-0.5">{p.brand} • {p.model}</p>
                                     </div>
                                     <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase shrink-0 ${p.status === 'critical' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
-                                            p.status === 'low' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
-                                                'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                        p.status === 'low' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                                            'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                                         }`}>{p.stock} un</span>
                                 </div>
 
@@ -548,6 +612,49 @@ const handleAddToLabelQueue = (product: Product, customQty?: number) => {
                     )}
                 </div>
 
+                {isPrintConfigOpen && (
+                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+                        <div className="bg-slate-900 p-6 rounded-xl w-[320px] space-y-4 border border-slate-700">
+
+                            <h2 className="text-white font-bold text-sm">
+                                Configurar Impressão
+                            </h2>
+
+                            <label className="text-xs text-slate-400">
+                                Iniciar na posição (1 a 48)
+                            </label>
+
+                            <input
+                                type="number"
+                                min={1}
+                                max={48}
+                                value={startPosition}
+                                onChange={(e) => setStartPosition(Number(e.target.value))}
+                                className="w-full px-3 py-2 rounded bg-slate-800 text-white text-sm"
+                            />
+
+                            <div className="flex gap-2 justify-end">
+                                <button
+                                    onClick={() => setIsPrintConfigOpen(false)}
+                                    className="px-3 py-2 text-xs text-slate-400"
+                                >
+                                    Cancelar
+                                </button>
+
+                                <button
+                                    onClick={() => {
+                                        setIsPrintConfigOpen(false);
+                                        exportMixedLabelsPDF();
+                                    }}
+                                    className="px-3 py-2 text-xs bg-emerald-500 text-black font-bold rounded"
+                                >
+                                    Imprimir
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* VISÃO EM TABELA TRADICIONAL (Desktop) */}
                 <div className="hidden md:block bg-slate-900/40 border border-slate-800 rounded-2xl overflow-hidden">
                     <table className="w-full text-left border-collapse">
@@ -574,8 +681,8 @@ const handleAddToLabelQueue = (product: Product, customQty?: number) => {
                                         <td className="px-6 py-4 text-center text-slate-400 text-sm font-semibold">{p.minStock}</td>
                                         <td className="px-6 py-4 text-center">
                                             <span className={`px-3 py-1 rounded-full text-xs font-black inline-block min-w-[65px] ${p.status === 'critical' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
-                                                    p.status === 'low' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
-                                                        'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                                p.status === 'low' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                                                    'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                                                 }`}>{p.stock} un</span>
                                         </td>
                                         <td className="px-6 py-4 text-right font-black text-emerald-400 text-sm">R$ {p.price.toFixed(2)}</td>
@@ -618,13 +725,14 @@ const handleAddToLabelQueue = (product: Product, customQty?: number) => {
             )}
 
             {/* 🌟 NOVO MODAL CUSTOMIZADO DE ETIQUETAS */}
-            <LabelActionModal 
+            {/* 🌟 MODAL DE ETIQUETAS COM SUPORTE A EDIÇÃO INTEGRADA */}
+            <LabelActionModal
                 isOpen={isLabelModalOpen}
                 onClose={() => { setIsLabelModalOpen(false); setProductPendingLabel(null); }}
-                productName={productPendingLabel?.name || ""}
-                onConfirm={(qty) => {
+                product={productPendingLabel} // Enviando o objeto completo agora
+                onConfirm={(qty, updatedData) => {
                     if (productPendingLabel) {
-                        handleAddToLabelQueue(productPendingLabel, qty);
+                        handleAddToLabelQueue(productPendingLabel, qty, updatedData);
                     }
                 }}
             />

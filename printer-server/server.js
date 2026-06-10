@@ -225,7 +225,7 @@ function gerarHtmlCupom(sale) {
     <h1>SOLUCELL</h1>
     <p>SOLUCELL GÁVEA</p>
     <p>Telefone: (31) 98551-2625</p>
-    <p class="sub-titulo">CUPOM NÃO FISCAL</p>
+    <p class="sub-titulo">@solucellgavea2</p>
     <p style="margin-top: 5px;">Data: ${new Date().toLocaleString("pt-BR")}</p>
   </div>
 

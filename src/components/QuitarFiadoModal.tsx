@@ -62,7 +62,7 @@ export default function QuitarFiadoModal({
         paymentMethod !== "Múltiplos"
             ? true
             : Number(totalInformado.toFixed(2)) ===
-              Number(total.toFixed(2));
+            Number(total.toFixed(2));
 
     const handleConfirm = async () => {
 
@@ -78,7 +78,7 @@ export default function QuitarFiadoModal({
             setLoading(true);
 
             const payload: any = {
-                status: "completed",
+                status: "fiado_quitado",
                 paidAt: serverTimestamp()
             };
 
@@ -188,11 +188,10 @@ export default function QuitarFiadoModal({
                                 onClick={() =>
                                     setPaymentMethod("PIX")
                                 }
-                                className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 ${
-                                    paymentMethod === "PIX"
+                                className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 ${paymentMethod === "PIX"
                                         ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
                                         : "border-slate-800 text-slate-400"
-                                }`}
+                                    }`}
                             >
                                 <Smartphone size={14} />
                                 PIX
@@ -202,11 +201,10 @@ export default function QuitarFiadoModal({
                                 onClick={() =>
                                     setPaymentMethod("Cartão")
                                 }
-                                className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 ${
-                                    paymentMethod === "Cartão"
+                                className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 ${paymentMethod === "Cartão"
                                         ? "border-blue-500 bg-blue-500/10 text-blue-400"
                                         : "border-slate-800 text-slate-400"
-                                }`}
+                                    }`}
                             >
                                 <CreditCard size={14} />
                                 Cartão
@@ -216,11 +214,10 @@ export default function QuitarFiadoModal({
                                 onClick={() =>
                                     setPaymentMethod("Dinheiro")
                                 }
-                                className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 ${
-                                    paymentMethod === "Dinheiro"
+                                className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 ${paymentMethod === "Dinheiro"
                                         ? "border-amber-500 bg-amber-500/10 text-amber-400"
                                         : "border-slate-800 text-slate-400"
-                                }`}
+                                    }`}
                             >
                                 <DollarSign size={14} />
                                 Dinheiro
@@ -230,11 +227,10 @@ export default function QuitarFiadoModal({
                                 onClick={() =>
                                     setPaymentMethod("Múltiplos")
                                 }
-                                className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 ${
-                                    paymentMethod === "Múltiplos"
+                                className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 ${paymentMethod === "Múltiplos"
                                         ? "border-purple-500 bg-purple-500/10 text-purple-400"
                                         : "border-slate-800 text-slate-400"
-                                }`}
+                                    }`}
                             >
                                 <CheckCircle2 size={14} />
                                 Múltiplos

@@ -23,7 +23,8 @@ import {
     Smartphone,
     Filter,
     CreditCard,
-    BadgeDollarSign
+    BadgeDollarSign,
+    Printer
 } from "lucide-react";
 
 import {
@@ -44,11 +45,11 @@ interface Maintenance {
     model: string;
     issue: string;
     status:
-        | "pending"
-        | "parts_ordered"
-        | "in_progress"
-        | "completed"
-        | "cancelled";
+    | "pending"
+    | "parts_ordered"
+    | "in_progress"
+    | "completed"
+    | "cancelled";
     value: number;
     paid: boolean;
     partOrdered: boolean;
@@ -102,6 +103,9 @@ export default function MaintenancePage() {
         string | null
     >(null);
 
+    const [showPrintModal, setShowPrintModal] = useState(false);
+    const [selectedOS, setSelectedOS] = useState<Maintenance | null>(null);
+
     const loadMaintenances = useCallback(async () => {
         if (!storeEmail) return;
 
@@ -121,6 +125,47 @@ export default function MaintenancePage() {
         loadMaintenances();
     }, [loadMaintenances]);
 
+    const handlePrintOS = async (maintenance: Maintenance) => {
+        try {
+            const dadosImpressao = {
+                isOS: true,
+                customer: maintenance.customer,
+                phone: maintenance.phone,
+                total: maintenance.value,
+                paymentMethod: maintenance.paid
+                    ? "Recebido / Antecipado"
+                    : "A Pagar na Retirada",
+                items: [
+                    {
+                        saleQty: 1,
+                        name: `Aparelho: ${maintenance.device} ${maintenance.model || ""}`.trim(),
+                        price: maintenance.value
+                    },
+                    {
+                        saleQty: 1,
+                        name: `Defeito: ${maintenance.issue}`,
+                        price: 0
+                    }
+                ]
+            };
+
+            const response = await fetch("http://localhost:3333/print", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(dadosImpressao)
+            });
+
+            if (!response.ok) {
+                throw new Error("Erro ao imprimir");
+            }
+
+        } catch (error) {
+            console.error("Erro ao reimprimir O.S:", error);
+            alert("Erro ao enviar para impressão.");
+        }
+    };
     const statusConfig = {
         pending: {
             label: "Aguardando",
@@ -575,11 +620,10 @@ export default function MaintenancePage() {
                         onClick={() =>
                             setPeriod(item.value as any)
                         }
-                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
-                            period === item.value
-                                ? "bg-slate-800 text-white border-slate-700"
-                                : "bg-transparent text-slate-500 border-slate-900 hover:text-slate-300"
-                        }`}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${period === item.value
+                            ? "bg-slate-800 text-white border-slate-700"
+                            : "bg-transparent text-slate-500 border-slate-900 hover:text-slate-300"
+                            }`}
                     >
                         {item.label}
                     </button>
@@ -782,7 +826,7 @@ export default function MaintenancePage() {
                                                 R$ {m.value.toFixed(2)}
 
                                                 {sortDirection ===
-                                                "desc" ? (
+                                                    "desc" ? (
                                                     <ArrowDown
                                                         size={12}
                                                         className="text-blue-500"
@@ -806,11 +850,10 @@ export default function MaintenancePage() {
                                                 disabled={
                                                     isLoading
                                                 }
-                                                className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ${
-                                                    m.paid
-                                                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                                                        : "bg-red-500/10 text-red-400 border-red-500/20"
-                                                }`}
+                                                className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ${m.paid
+                                                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                                    : "bg-red-500/10 text-red-400 border-red-500/20"
+                                                    }`}
                                             >
                                                 {isLoading ? (
                                                     <Loader
@@ -865,22 +908,22 @@ export default function MaintenancePage() {
                                                 ].includes(
                                                     m.status
                                                 ) && (
-                                                    <button
-                                                        onClick={() =>
-                                                            advanceStatus(
-                                                                m
-                                                            )
-                                                        }
-                                                        className="p-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/10 transition-all"
-                                                    >
-                                                        <Zap
-                                                            size={
-                                                                14
+                                                        <button
+                                                            onClick={() =>
+                                                                advanceStatus(
+                                                                    m
+                                                                )
                                                             }
-                                                            className="text-blue-400"
-                                                        />
-                                                    </button>
-                                                )}
+                                                            className="p-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/10 transition-all"
+                                                        >
+                                                            <Zap
+                                                                size={
+                                                                    14
+                                                                }
+                                                                className="text-blue-400"
+                                                            />
+                                                        </button>
+                                                    )}
 
                                                 <button
                                                     onClick={() =>
@@ -913,6 +956,13 @@ export default function MaintenancePage() {
                                                         className="text-red-400"
                                                     />
                                                 </button>
+
+                                                <button
+                                                    onClick={() => handlePrintOS(m)}
+                                                >
+                                                    <Printer size={14} />
+                                                </button>
+
 
                                             </div>
 

@@ -119,6 +119,7 @@ export default function Sales({ storeEmail }: SalesProps) {
     const [isLoading, setIsLoading] = useState(true);
 
     const fetchSalesFromFirestore = useCallback(async () => {
+        console.log("BUSCANDO VENDAS");
         setIsLoading(true);
         try {
             const q = query(collection(db, "sales"), where("store", "==", storeEmail));
@@ -142,14 +143,35 @@ export default function Sales({ storeEmail }: SalesProps) {
                     // Tratamento dos novos campos vindo do Firebase
                     type: data.type || "venda",
                     partCost: Number(data.partCost) || 0,
-                    multiplePayments: data.multiplePayments || null
+                    multiplePayments:
+                        data.multiplePayments ||
+                        (data.payments
+                            ? [
+                                ...(data.payments.pix > 0
+                                    ? [{ method: "PIX", value: data.payments.pix }]
+                                    : []),
+
+                                ...(data.payments.cartao > 0
+                                    ? [{ method: "CARTÃO", value: data.payments.cartao }]
+                                    : []),
+
+                                ...(data.payments.dinheiro > 0
+                                    ? [{ method: "DINHEIRO", value: data.payments.dinheiro }]
+                                    : [])
+                            ]
+                            : null)
                 };
             })
                 .sort((a, b) => (b.dateObject?.getTime() || 0) - (a.dateObject?.getTime() || 0));
 
             setSales(list);
         } catch (error) {
-            console.error(error);
+            console.error(
+                "ERRO FIREBASE:",
+                error.code,
+                error.message,
+                error
+            );
         } finally {
             setIsLoading(false);
         }
@@ -158,6 +180,35 @@ export default function Sales({ storeEmail }: SalesProps) {
     useEffect(() => {
         fetchSalesFromFirestore();
     }, [fetchSalesFromFirestore]);
+
+    const handlePrintSale = async (sale: SaleWithClient) => {
+        try {
+            const response = await fetch("http://localhost:3333/print", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    customer: sale.clientName || "",
+                    paymentMethod: sale.payment,
+                    total: sale.total,
+                    items: sale.items,
+                    isOS: sale.type === "manutencao"
+                }),
+            });
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || "Erro ao imprimir");
+            }
+
+            alert("Cupom enviado para impressão!");
+        } catch (err) {
+            console.error(err);
+            alert("Erro ao imprimir.");
+        }
+    };
 
     // 1. Filtragem estrita por período/data
     const filteredByPeriod = sales.filter(sale => {
@@ -207,6 +258,12 @@ export default function Sales({ storeEmail }: SalesProps) {
     };
 
     // 2. Aplica filtro do Card Selecionado + Busca por Texto
+    const normalize = (text: string) =>
+        text
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toUpperCase();
+
     const finalFilteredSales = filteredByPeriod.filter((sale) => {
         // Filtro do Card Clicado (Verifica tanto o payment fixo quanto a lista de múltiplos pagamentos)
         if (selectedMethodCard) {
@@ -214,8 +271,12 @@ export default function Sales({ storeEmail }: SalesProps) {
             const target = searchMap[selectedMethodCard];
 
             if (target) {
-                const hasInMultiple = sale.multiplePayments?.some(p => p.method.toUpperCase().includes(target === "CARTAO" ? "CARTA" : target));
-                const hasInSingle = sale.payment.toUpperCase().includes(target === "CARTAO" ? "CARTA" : target);
+                const hasInMultiple = sale.multiplePayments?.some(
+                    p => normalize(p.method).includes(target)
+                );
+
+                const hasInSingle = normalize(sale.payment).includes(target);
+
                 if (!hasInMultiple && !hasInSingle) return false;
             }
         }
@@ -319,8 +380,8 @@ export default function Sales({ storeEmail }: SalesProps) {
                     <button
                         onClick={() => handleCardClick("PIX")}
                         className={`text-left p-5 rounded-xl border transition-all flex flex-col justify-between ${selectedMethodCard === "PIX"
-                                ? "bg-emerald-500/10 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
-                                : "bg-slate-900/50 border-slate-800 hover:border-slate-700"
+                            ? "bg-emerald-500/10 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+                            : "bg-slate-900/50 border-slate-800 hover:border-slate-700"
                             }`}
                     >
                         <div>
@@ -338,8 +399,8 @@ export default function Sales({ storeEmail }: SalesProps) {
                     <button
                         onClick={() => handleCardClick("CARTAO")}
                         className={`text-left p-5 rounded-xl border transition-all flex flex-col justify-between ${selectedMethodCard === "CARTAO"
-                                ? "bg-blue-500/10 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.1)]"
-                                : "bg-slate-900/50 border-slate-800 hover:border-slate-700"
+                            ? "bg-blue-500/10 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.1)]"
+                            : "bg-slate-900/50 border-slate-800 hover:border-slate-700"
                             }`}
                     >
                         <div>
@@ -357,8 +418,8 @@ export default function Sales({ storeEmail }: SalesProps) {
                     <button
                         onClick={() => handleCardClick("DINHEIRO")}
                         className={`text-left p-5 rounded-xl border transition-all flex flex-col justify-between ${selectedMethodCard === "DINHEIRO"
-                                ? "bg-amber-500/10 border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.1)]"
-                                : "bg-slate-900/50 border-slate-800 hover:border-slate-700"
+                            ? "bg-amber-500/10 border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.1)]"
+                            : "bg-slate-900/50 border-slate-800 hover:border-slate-700"
                             }`}
                     >
                         <div>
@@ -376,8 +437,8 @@ export default function Sales({ storeEmail }: SalesProps) {
                     <button
                         onClick={() => handleCardClick("TOTAL")}
                         className={`text-left p-5 rounded-xl border transition-all flex flex-col justify-between relative overflow-hidden ${selectedMethodCard === "TOTAL"
-                                ? "bg-emerald-600/20 border-emerald-400"
-                                : "bg-emerald-600/10 border-emerald-500/20 hover:border-emerald-500/40"
+                            ? "bg-emerald-600/20 border-emerald-400"
+                            : "bg-emerald-600/10 border-emerald-500/20 hover:border-emerald-500/40"
                             }`}
                     >
                         <div className="absolute right-4 top-4 text-emerald-500/5">
@@ -408,8 +469,8 @@ export default function Sales({ storeEmail }: SalesProps) {
                                     setSelectedMethodCard(null);
                                 }}
                                 className={`px-4 py-2.5 rounded-lg text-xs font-black transition-all ${filter === f
-                                        ? "bg-white text-slate-950"
-                                        : "text-slate-400 hover:text-slate-200"
+                                    ? "bg-white text-slate-950"
+                                    : "text-slate-400 hover:text-slate-200"
                                     }`}
                             >
                                 {f === "today" ? "HOJE" : f === "week" ? "SEMANA" : f === "month" ? "MÊS" : "DATA ESPECÍFICA"}
@@ -479,10 +540,10 @@ export default function Sales({ storeEmail }: SalesProps) {
                                 <div
                                     key={sale.id}
                                     className={`bg-slate-900/40 border rounded-xl p-5 hover:border-slate-700/50 transition-all ${isRefunded
-                                            ? "border-red-900/40 bg-red-950/5 opacity-80"
-                                            : isCancelled
-                                                ? "border-slate-800 bg-slate-950/30 opacity-60"
-                                                : "border-slate-800"
+                                        ? "border-red-900/40 bg-red-950/5 opacity-80"
+                                        : isCancelled
+                                            ? "border-slate-800 bg-slate-950/30 opacity-60"
+                                            : "border-slate-800"
                                         }`}
                                 >
                                     <div className="flex flex-col xl:flex-row gap-6">
@@ -507,11 +568,7 @@ export default function Sales({ storeEmail }: SalesProps) {
                                                                 <Wrench size={10} /> MANUTENÇÃO
                                                             </span>
                                                         )}
-                                                        {sale.multiplePayments && sale.multiplePayments.length > 0 && (
-                                                            <span className="px-2 py-0.5 bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[9px] font-black rounded uppercase tracking-wider flex items-center gap-1">
-                                                                <Layers size={10} /> PGTO MÚLTIPLO
-                                                            </span>
-                                                        )}
+                                                      
                                                         {isRefunded && <span className="px-2 py-0.5 bg-red-500/10 border border-red-500/20 text-red-400 text-[9px] font-black rounded uppercase tracking-wider">REEMBOLSADO</span>}
                                                         {isCancelled && <span className="px-2 py-0.5 bg-slate-800 text-slate-500 text-[9px] font-black rounded uppercase tracking-wider">CANCELADO</span>}
                                                         {sale.status === "pending" && <span className="px-2 py-0.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[9px] font-black rounded uppercase tracking-wider">FIADO PENDENTE</span>}
@@ -607,6 +664,13 @@ export default function Sales({ storeEmail }: SalesProps) {
                                                     >
                                                         <Undo2 size={13} />
                                                         Estornar
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => handlePrintSale(sale)}
+                                                        className="flex-1 xl:w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg py-2 font-bold text-xs transition-all active:scale-[0.97]"
+                                                    >
+                                                        Imprimir Cupom
                                                     </button>
                                                 </>
                                             )}
