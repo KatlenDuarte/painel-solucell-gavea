@@ -19,9 +19,13 @@ export const productsCollection = collection(db, "products");
 // Buscar produtos da loja
 // --------------------------------------------------
 export const fetchProducts = async (storeEmail: string) => {
-  if (!storeEmail) return [];
+  if (!storeEmail?.trim()) return [];
 
-  const q = query(productsCollection, where("store", "==", storeEmail));
+  const q = query(
+    productsCollection,
+    where("store", "==", storeEmail.trim())
+  );
+
   const snapshot = await getDocs(q);
 
   return snapshot.docs.map((docSnap) => ({
@@ -31,24 +35,29 @@ export const fetchProducts = async (storeEmail: string) => {
 };
 
 // --------------------------------------------------
-// Buscar produtos por termo de pesquisa (CORRIGIDO PARA BUSCAR BARCODE TAMBÉM)
+// Buscar produtos por nome
 // --------------------------------------------------
 export const searchProducts = async (
   storeEmail: string,
   searchTerm: string,
   limitResults = 15
 ) => {
-  if (!storeEmail || !searchTerm) return [];
+  if (!storeEmail?.trim() || !searchTerm.trim()) return [];
 
-  const searchLower = searchTerm.toLowerCase();
+  const searchLower = searchTerm.trim().toLowerCase();
 
   const q = query(
     productsCollection,
-    where("store", "==", storeEmail),
+    where("store", "==", storeEmail.trim()),
     where("nameLower", ">=", searchLower),
-    where("nameLower", "<", searchLower + "\uf8ff"),
+    where(
+      "nameLower",
+      "<",
+      searchLower + "\uf8ff"
+    ),
     limit(limitResults)
   );
+
   const snapshot = await getDocs(q);
 
   return snapshot.docs.map((docSnap) => ({
@@ -58,88 +67,193 @@ export const searchProducts = async (
 };
 
 // --------------------------------------------------
-// Criar produto (CORRIGIDO PARA INCLUIR BARCODE)
+// Criar produto
 // --------------------------------------------------
-export const addProduct = async (product: any, storeEmail: string) => {
-  if (!storeEmail) throw new Error("E-mail da loja não fornecido.");
+export const addProduct = async (
+  product: any,
+  storeEmail: string
+) => {
+  if (!storeEmail?.trim()) {
+    throw new Error(
+      "E-mail da loja não fornecido."
+    );
+  }
 
   const ref = doc(productsCollection);
 
+  const stock = Number(product.stock);
+  const minStock = Number(product.minStock);
+  const price = Number(product.price);
+  const costPrice = Number(product.costPrice);
+
   const data = {
     id: ref.id,
-    store: storeEmail, // 🔥 GARANTE que NUNCA vira NaN
+    store: storeEmail.trim(),
 
-    stock: Number(product.stock) >= 0 ? Number(product.stock) : 0,
-    minStock: Number(product.minStock) >= 0 ? Number(product.minStock) : 0,
-    price: Number(product.price) >= 0 ? Number(product.price) : 0,
-    costPrice: Number(product.costPrice) >= 0 ? Number(product.costPrice) : 0, // Strings
+    stock:
+      Number.isFinite(stock) && stock >= 0
+        ? stock
+        : 0,
+
+    minStock:
+      Number.isFinite(minStock) && minStock >= 0
+        ? minStock
+        : 0,
+
+    price:
+      Number.isFinite(price) && price >= 0
+        ? price
+        : 0,
+
+    costPrice:
+      Number.isFinite(costPrice) &&
+      costPrice >= 0
+        ? costPrice
+        : 0,
 
     name: product.name || "",
     brand: product.brand || "",
     model: product.model || "",
     category: product.category || "",
-    // ✅ NOVO: Inclui o código de barras
-    barcode: product.barcode || null, // Busca rápida
 
-    nameLower: product.name?.toLowerCase() || "",
+    barcode: product.barcode
+      ? String(product.barcode).trim()
+      : null,
+
+    nameLower:
+      String(product.name || "")
+        .trim()
+        .toLowerCase(),
   };
 
   await setDoc(ref, data);
+
   return data;
 };
 
 // --------------------------------------------------
-// Atualizar produto (SEM undefined/NaN)
+// Atualizar produto
 // --------------------------------------------------
-export const updateProduct = async (id: string, data: any) => {
-  const productRef = doc(productsCollection, id);
+export const updateProduct = async (
+  id: string,
+  data: any
+) => {
+  if (!id) {
+    throw new Error(
+      "ID do produto não informado."
+    );
+  }
 
-  const cleaned: any = {}; // 🔥 Só inclui campos que realmente foram enviados
+  const productRef = doc(
+    productsCollection,
+    id
+  );
+
+  const cleaned: any = {};
 
   if (data.name !== undefined) {
     cleaned.name = data.name;
-    cleaned.nameLower = data.name.toLowerCase();
+    cleaned.nameLower = String(
+      data.name
+    )
+      .trim()
+      .toLowerCase();
   }
 
-  // ✅ NOVO: Permite atualizar o código de barras
-  if (data.barcode !== undefined) cleaned.barcode = data.barcode || null;
+  if (data.barcode !== undefined) {
+    cleaned.barcode = data.barcode
+      ? String(data.barcode).trim()
+      : null;
+  }
 
-  if (data.brand !== undefined) cleaned.brand = data.brand;
-  if (data.model !== undefined) cleaned.model = data.model;
-  if (data.category !== undefined) cleaned.category = data.category; // 🔥 Converte números SEM NUNCA gerar NaN
+  if (data.brand !== undefined) {
+    cleaned.brand = data.brand;
+  }
 
-  if (data.stock !== undefined)
-    cleaned.stock = Number(data.stock) >= 0 ? Number(data.stock) : 0;
+  if (data.model !== undefined) {
+    cleaned.model = data.model;
+  }
 
-  if (data.minStock !== undefined)
-    cleaned.minStock = Number(data.minStock) >= 0 ? Number(data.minStock) : 0;
+  if (data.category !== undefined) {
+    cleaned.category = data.category;
+  }
 
-  if (data.price !== undefined)
-    cleaned.price = Number(data.price) >= 0 ? Number(data.price) : 0;
+  if (data.stock !== undefined) {
+    const value = Number(data.stock);
 
-  if (data.costPrice !== undefined)
+    cleaned.stock =
+      Number.isFinite(value) && value >= 0
+        ? value
+        : 0;
+  }
+
+  if (data.minStock !== undefined) {
+    const value = Number(data.minStock);
+
+    cleaned.minStock =
+      Number.isFinite(value) && value >= 0
+        ? value
+        : 0;
+  }
+
+  if (data.price !== undefined) {
+    const value = Number(data.price);
+
+    cleaned.price =
+      Number.isFinite(value) && value >= 0
+        ? value
+        : 0;
+  }
+
+  if (data.costPrice !== undefined) {
+    const value = Number(
+      data.costPrice
+    );
+
     cleaned.costPrice =
-      Number(data.costPrice) >= 0 ? Number(data.costPrice) : 0;
+      Number.isFinite(value) && value >= 0
+        ? value
+        : 0;
+  }
 
-  await updateDoc(productRef, cleaned);
+  if (Object.keys(cleaned).length === 0) {
+    return;
+  }
+
+  await updateDoc(
+    productRef,
+    cleaned
+  );
 };
 
 // --------------------------------------------------
-// Buscar produto por código de barras (NOVA FUNÇÃO)
+// Buscar produto por código de barras
 // --------------------------------------------------
-/**
- * Busca um produto específico pelo seu código de barras.
- */
 export const fetchProductByBarcode = async (
   storeEmail: string,
   barcode: string
 ) => {
-  if (!storeEmail || !barcode) return null;
+  if (
+    !storeEmail?.trim() ||
+    !barcode?.trim()
+  ) {
+    return null;
+  }
+
+  const cleanBarcode = barcode.trim();
 
   const q = query(
     productsCollection,
-    where("store", "==", storeEmail),
-    where("barcode", "==", barcode),
+    where(
+      "store",
+      "==",
+      storeEmail.trim()
+    ),
+    where(
+      "barcode",
+      "==",
+      cleanBarcode
+    ),
     limit(1)
   );
 
@@ -158,32 +272,77 @@ export const fetchProductByBarcode = async (
 };
 
 // --------------------------------------------------
-// Ajustar estoque (SEM NaN SEM ERRO)
+// Ajustar estoque
 // --------------------------------------------------
 export const adjustStock = async (
   id: string,
   value: number,
-  operation: "add" | "remove" | "set"
+  operation:
+    | "add"
+    | "remove"
+    | "set"
 ) => {
-  const productRef = doc(productsCollection, id); // Garantia anti-NaN
+  if (!id) {
+    throw new Error(
+      "ID do produto não informado."
+    );
+  }
+
+  const productRef = doc(
+    productsCollection,
+    id
+  );
 
   const qty = Number(value);
-  if (isNaN(qty) || qty < 0) throw new Error("Quantidade inválida");
+
+  if (
+    !Number.isFinite(qty) ||
+    qty < 0
+  ) {
+    throw new Error(
+      "Quantidade inválida."
+    );
+  }
 
   if (operation === "set") {
-    await updateDoc(productRef, { stock: qty });
-    return;
-  } // Uso de increment para garantir atomicidade
+    await updateDoc(
+      productRef,
+      {
+        stock: qty,
+      }
+    );
 
-  await updateDoc(productRef, {
-    stock: increment(operation === "add" ? qty : -qty),
-  });
+    return;
+  }
+
+  await updateDoc(
+    productRef,
+    {
+      stock: increment(
+        operation === "add"
+          ? qty
+          : -qty
+      ),
+    }
+  );
 };
 
 // --------------------------------------------------
 // Deletar produto
 // --------------------------------------------------
-export const deleteProduct = async (id: string) => {
-  const productRef = doc(productsCollection, id);
+export const deleteProduct = async (
+  id: string
+) => {
+  if (!id) {
+    throw new Error(
+      "ID do produto não informado."
+    );
+  }
+
+  const productRef = doc(
+    productsCollection,
+    id
+  );
+
   await deleteDoc(productRef);
 };

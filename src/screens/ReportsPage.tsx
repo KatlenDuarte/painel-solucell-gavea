@@ -1,6 +1,6 @@
 // src/screens/Reports.tsx
-import React, { useEffect, useState, useMemo, useRef } from "react";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import { collection, getDocs, query, orderBy, where, Timestamp, limit } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -62,12 +62,84 @@ export default function Reports() {
 
     const reportRef = useRef<HTMLDivElement>(null);
 
-    // Buscar todas as vendas do Firebase
+    // Calcula o intervalo de datas (start/end) com base no filtro selecionado
+    const getDateRange = useCallback(() => {
+        const now = new Date();
+        let start: Date;
+        let end: Date | null = null;
+
+        switch (period) {
+            case "day":
+                start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+                end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+                break;
+
+            case "week":
+                start = new Date();
+                start.setDate(now.getDate() - 7);
+                start.setHours(0, 0, 0, 0);
+                end = new Date();
+                break;
+
+            case "month":
+                start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+                end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+                break;
+
+            case "year":
+                start = new Date(now.getFullYear(), 0, 1, 0, 0, 0);
+                end = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+                break;
+
+            case "custom_month":
+                start = new Date(selectedYear, selectedMonth, 1, 0, 0, 0);
+                end = new Date(selectedYear, selectedMonth + 1, 0, 23, 59, 59);
+                break;
+
+            case "custom_day":
+                if (!selectedDay) {
+                    start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+                    end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+                } else {
+                    const [y, m, d] = selectedDay.split("-").map(Number);
+                    start = new Date(y, m - 1, d, 0, 0, 0);
+                    end = new Date(y, m - 1, d, 23, 59, 59);
+                }
+                break;
+
+            case "custom":
+                start = startDate ? new Date(startDate + "T00:00:00") : new Date(0);
+                end = endDate ? new Date(endDate + "T23:59:59") : null;
+                break;
+
+            default:
+                start = new Date(0);
+        }
+
+        return { start, end };
+    }, [period, selectedMonth, selectedYear, selectedDay, startDate, endDate]);
+
+    // Buscar APENAS as vendas do período no Firebase (Filtragem no Backend)
     useEffect(() => {
         async function fetchSales() {
             setLoading(true);
             try {
-                const q = query(collection(db, "sales"), orderBy("timestamp", "desc"));
+                const { start, end } = getDateRange();
+                const constraints: any[] = [];
+
+                if (start) {
+                    constraints.push(where("timestamp", ">=", Timestamp.fromDate(start)));
+                }
+                if (end) {
+                    constraints.push(where("timestamp", "<=", Timestamp.fromDate(end)));
+                }
+
+                constraints.push(orderBy("timestamp", "desc"));
+                
+                // Trava de segurança para limitar volume
+                constraints.push(limit(500));
+
+                const q = query(collection(db, "sales"), ...constraints);
                 const snapshot = await getDocs(q);
 
                 const data = snapshot.docs.map(doc => ({
@@ -84,8 +156,9 @@ export default function Reports() {
                 setLoading(false);
             }
         }
+
         fetchSales();
-    }, []);
+    }, [getDateRange]);
 
     const isSaleValid = (sale: SaleData) => {
         const status = sale.status?.toLowerCase();
@@ -107,115 +180,9 @@ export default function Reports() {
         return splits;
     };
 
-    // Lógica de Filtragem e Ordenação
+    // Filtros adicionais na memória (Apenas texto, método de pagamento e ordenação)
     const processedSales = useMemo(() => {
-        const now = new Date();
-        let startDateFilter: Date;
-        let endDateFilter: Date | null = null;
-
-        switch (period) {
-            case "day":
-                startDateFilter = new Date(
-                    now.getFullYear(),
-                    now.getMonth(),
-                    now.getDate()
-                );
-                break;
-
-            case "week":
-                startDateFilter = new Date();
-                startDateFilter.setDate(now.getDate() - 7);
-                break;
-
-            case "month":
-                startDateFilter = new Date(
-                    now.getFullYear(),
-                    now.getMonth(),
-                    1
-                );
-                break;
-
-            case "year":
-                startDateFilter = new Date(
-                    now.getFullYear(),
-                    0,
-                    1
-                );
-                break;
-
-            case "custom_month":
-                startDateFilter = new Date(
-                    selectedYear,
-                    selectedMonth,
-                    1
-                );
-
-                endDateFilter = new Date(
-                    selectedYear,
-                    selectedMonth + 1,
-                    0,
-                    23,
-                    59,
-                    59
-                );
-                break;
-
-            case "custom_day":
-                if (!selectedDay) {
-                    startDateFilter = new Date(0);
-                } else {
-                    const [y, m, d] = selectedDay
-                        .split("-")
-                        .map(Number);
-
-                    startDateFilter = new Date(
-                        y,
-                        m - 1,
-                        d,
-                        0,
-                        0,
-                        0
-                    );
-
-                    endDateFilter = new Date(
-                        y,
-                        m - 1,
-                        d,
-                        23,
-                        59,
-                        59
-                    );
-                }
-                break;
-
-            case "custom":
-                startDateFilter = startDate
-                    ? new Date(startDate + "T00:00:00")
-                    : new Date(0);
-
-                endDateFilter = endDate
-                    ? new Date(endDate + "T23:59:59")
-                    : null;
-                break;
-
-            default:
-                startDateFilter = new Date(0);
-        }
-
         const filtered = sales.filter(sale => {
-            const saleDate = sale.timestamp?.toDate();
-            if (!saleDate) return false;
-
-            const matchesDate = endDateFilter
-                ? (
-                    saleDate >= startDateFilter &&
-                    saleDate <= endDateFilter
-                )
-                : (
-                    saleDate >= startDateFilter
-                );
-            if (!matchesDate) return false;
-
             if (!isSaleValid(sale)) return false;
 
             const searchLower = searchTerm.toLowerCase();
@@ -244,7 +211,7 @@ export default function Reports() {
             if (sortDirection === "asc") return a.total - b.total;
             return b.total - a.total;
         });
-    }, [sales, period, searchTerm, paymentFilter, sortDirection, selectedMonth, selectedYear, selectedDay]);
+    }, [sales, searchTerm, paymentFilter, sortDirection]);
 
     // Métricas
     const metrics = useMemo(() => {

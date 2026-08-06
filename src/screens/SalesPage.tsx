@@ -3,8 +3,8 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
     Plus, Search, CreditCard, Smartphone,
     DollarSign, Undo2,
-    TrendingUp, Eye, EyeOff,
-    Pencil, Clock, Calendar, User, Wrench, Layers
+    TrendingUp, TrendingDown, Eye, EyeOff,
+    Pencil, Clock, User, Wrench, Layers, Printer
 } from "lucide-react";
 
 import { collection, getDocs, query, where } from "firebase/firestore";
@@ -236,25 +236,55 @@ export default function Sales({ storeEmail }: SalesProps) {
         return true;
     });
 
-    // Função auxiliar para calcular o total por método de pagamento (considerando múltiplos pagamentos)
+    const isLoss = (sale: SaleWithClient) =>
+        sale.status === "loss" || sale.type === "perda";
+
     const getSumByMethod = (salesList: SaleWithClient[], method: string) => {
         return salesList
-            .filter(s => s.status !== "refunded" && s.status !== "cancelled")
+            .filter(s =>
+                s.status !== "refunded" &&
+                s.status !== "cancelled" &&
+                !isLoss(s)
+            )
             .reduce((acc, sale) => {
-                if (sale.multiplePayments && sale.multiplePayments.length > 0) {
-                    const match = sale.multiplePayments.find(p => p.method.toUpperCase().includes(method));
-                    return acc + (match ? match.value : 0);
+                if (sale.multiplePayments?.length) {
+                    const totalMetodo = sale.multiplePayments
+                        .filter(p => p.method.toUpperCase().includes(method))
+                        .reduce((t, p) => t + p.value, 0);
+
+                    return acc + totalMetodo;
                 }
-                return acc + (sale.payment.toUpperCase().includes(method) ? sale.total : 0);
+
+                return acc +
+                    (sale.payment.toUpperCase().includes(method)
+                        ? sale.total
+                        : 0);
             }, 0);
     };
 
     // Cômputo dos cards atualizado para verificar se há pagamentos múltiplos splitados
+    const losses = filteredByPeriod
+        .filter(isLoss)
+        .reduce((acc, sale) => acc + sale.total, 0);
+
     const stats = {
         pix: getSumByMethod(filteredByPeriod, "PIX"),
-        cartao: getSumByMethod(filteredByPeriod, "CARTÃO") + getSumByMethod(filteredByPeriod, "CARTAO"),
+
+        cartao:
+            getSumByMethod(filteredByPeriod, "CARTÃO") +
+            getSumByMethod(filteredByPeriod, "CARTAO"),
+
         dinheiro: getSumByMethod(filteredByPeriod, "DINHEIRO"),
-        total: filteredByPeriod.filter(s => s.status !== "refunded" && s.status !== "cancelled").reduce((acc, curr) => acc + curr.total, 0)
+
+        total: filteredByPeriod
+            .filter(s =>
+                s.status !== "refunded" &&
+                s.status !== "cancelled" &&
+                !isLoss(s)
+            )
+            .reduce((acc, curr) => acc + curr.total, 0),
+
+        perdas: losses
     };
 
     // 2. Aplica filtro do Card Selecionado + Busca por Texto
@@ -296,8 +326,35 @@ export default function Sales({ storeEmail }: SalesProps) {
         }
     };
 
+    // 3. Agrupamento por data para a linha do tempo (extrato)
+    const groupedSales = finalFilteredSales.reduce<Record<string, SaleWithClient[]>>((acc, sale) => {
+        if (!acc[sale.date]) acc[sale.date] = [];
+        acc[sale.date].push(sale);
+        return acc;
+    }, {});
+
+    const todayLabel = new Date().toLocaleDateString("pt-BR");
+
+    const methodPct = (value: number) =>
+        stats.total > 0 ? Math.min(100, (value / stats.total) * 100) : 0;
+
+    const dotClasses = (sale: SaleWithClient) => {
+        if (isLoss(sale)) return "bg-red-500 ring-red-100";
+        if (sale.status === "refunded") return "bg-red-300 ring-red-50";
+        if (sale.status === "cancelled") return "bg-slate-300 ring-slate-100";
+        if (sale.status === "pending") return "bg-amber-400 ring-amber-100";
+        return "bg-emerald-500 ring-emerald-100";
+    };
+
     return (
-        <div className="min-h-screen bg-[#020617] text-slate-300 p-4 md:p-8 font-sans antialiased">
+        <div className="min-h-screen bg-[#F7F8FA] text-slate-600 p-4 md:p-8 font-sans antialiased relative overflow-x-hidden">
+
+            {/* DECORAÇÃO DE FUNDO — halos suaves para dar profundidade sem poluir */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-[320px] overflow-hidden -z-0">
+                <div className="absolute -top-24 left-[10%] w-[360px] h-[360px] rounded-full bg-emerald-300/20 blur-[110px]" />
+                <div className="absolute -top-28 right-[8%] w-[320px] h-[320px] rounded-full bg-blue-300/15 blur-[110px]" />
+            </div>
+
             <RefundConfirmationModal
                 saleId={refundSaleId}
                 onClose={() => {
@@ -311,7 +368,6 @@ export default function Sales({ storeEmail }: SalesProps) {
                 <NewSaleModal
                     onClose={() => {
                         setIsNewSaleModal(false);
-                        fetchSalesFromFirestore();
                     }}
                     storeEmail={storeEmail}
                     onSaleComplete={fetchSalesFromFirestore}
@@ -328,37 +384,34 @@ export default function Sales({ storeEmail }: SalesProps) {
                 onSave={fetchSalesFromFirestore}
             />
 
-            <div className="max-w-6xl mx-auto space-y-6">
+            <div className="max-w-7xl mx-auto space-y-6 relative z-10">
 
-                {/* HEADER */}
-                <header className="flex flex-col lg:flex-row justify-between lg:items-end gap-6 border-b border-slate-800 pb-6">
+                {/* HEADER ENXUTO */}
+                <header className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                     <div>
-                        <div className="flex items-center gap-2 mb-2">
-                            <span className="bg-emerald-500/10 text-emerald-400 text-[9px] font-black px-2.5 py-0.5 rounded border border-emerald-500/20 uppercase tracking-widest">
+                        <div className="flex items-center gap-2 mb-1.5">
+                            <span className="bg-emerald-50 text-emerald-700 text-[9px] font-black px-2.5 py-0.5 rounded-full border border-emerald-200 uppercase tracking-widest">
                                 Painel Operacional
                             </span>
-                            <span className="bg-slate-950 text-slate-500 text-[9px] font-black px-2.5 py-0.5 rounded border border-slate-800/80 uppercase tracking-widest">
-                                23/04/2026
-                            </span>
                         </div>
-                        <h1 className="text-3xl md:text-4xl font-black italic text-white">
-                            FLUXO DE <span className="text-emerald-500">CAIXA</span>
-                            <span className="text-emerald-500">.</span>
+                        <h1 className="text-2xl md:text-3xl font-black italic text-slate-900 tracking-tight">
+                            FLUXO DE <span className="text-emerald-600">CAIXA</span>
+                            <span className="text-emerald-600">.</span>
                         </h1>
                     </div>
 
-                    <div className="flex items-center gap-3 self-start lg:self-end">
+                    <div className="flex items-center gap-3">
                         <button
                             onClick={() => setHideValues(!hideValues)}
-                            className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 px-4 py-2 rounded-xl text-xs font-bold text-slate-400 transition-all active:scale-[0.97]"
+                            className="flex items-center gap-2 bg-white hover:bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-500 shadow-sm transition-all active:scale-[0.97]"
                         >
                             {hideValues ? <EyeOff size={14} /> : <Eye size={14} />}
-                            <span>{hideValues ? "Mostrar Valores" : "Ocultar Valores"}</span>
+                            <span className="hidden sm:inline">{hideValues ? "Mostrar Valores" : "Ocultar Valores"}</span>
                         </button>
 
                         <button
                             onClick={() => setIsNewSaleModal(true)}
-                            className="px-4 py-2 bg-emerald-600 text-white rounded-xl font-bold text-xs hover:bg-emerald-500 flex items-center gap-1.5 transition-all active:scale-[0.97] shadow-sm"
+                            className="px-4 py-2 bg-emerald-600 text-white rounded-xl font-bold text-xs hover:bg-emerald-500 flex items-center gap-1.5 transition-all active:scale-[0.97] shadow-md shadow-emerald-600/20"
                         >
                             <Plus size={16} strokeWidth={2.5} /> Nova Operação
                         </button>
@@ -374,313 +427,328 @@ export default function Sales({ storeEmail }: SalesProps) {
                     type="text"
                 />
 
-                {/* CARDS DE ESTATÍSTICAS CLICÁVEIS */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    {/* CARD PIX */}
-                    <button
-                        onClick={() => handleCardClick("PIX")}
-                        className={`text-left p-5 rounded-xl border transition-all flex flex-col justify-between ${selectedMethodCard === "PIX"
-                            ? "bg-emerald-500/10 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
-                            : "bg-slate-900/50 border-slate-800 hover:border-slate-700"
-                            }`}
-                    >
-                        <div>
-                            <div className="flex items-center gap-1.5 mb-2">
-                                <Smartphone className={selectedMethodCard === "PIX" ? "text-emerald-400" : "text-emerald-500"} size={14} />
-                                <p className="text-slate-500 text-[9px] font-black uppercase tracking-wider">PIX</p>
-                            </div>
-                            <p className="text-2xl font-black tracking-tight text-white">
-                                {hideValues ? "••••••" : `R$ ${stats.pix.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                            </p>
-                        </div>
-                    </button>
+                {/* LAYOUT PRINCIPAL: PAINEL LATERAL (EXTRATO) + LINHA DO TEMPO */}
+                <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6 items-start">
 
-                    {/* CARD CARTÃO */}
-                    <button
-                        onClick={() => handleCardClick("CARTAO")}
-                        className={`text-left p-5 rounded-xl border transition-all flex flex-col justify-between ${selectedMethodCard === "CARTAO"
-                            ? "bg-blue-500/10 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.1)]"
-                            : "bg-slate-900/50 border-slate-800 hover:border-slate-700"
-                            }`}
-                    >
-                        <div>
-                            <div className="flex items-center gap-1.5 mb-2">
-                                <CreditCard className={selectedMethodCard === "CARTAO" ? "text-blue-400" : "text-blue-500"} size={14} />
-                                <p className="text-slate-500 text-[9px] font-black uppercase tracking-wider">Cartão</p>
-                            </div>
-                            <p className="text-2xl font-black tracking-tight text-white">
-                                {hideValues ? "••••••" : `R$ ${stats.cartao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                            </p>
-                        </div>
-                    </button>
+                    {/* ===== COLUNA ESQUERDA — RESUMO FIXO ===== */}
+                    <aside className="space-y-4 lg:sticky lg:top-6">
 
-                    {/* CARD DINHEIRO */}
-                    <button
-                        onClick={() => handleCardClick("DINHEIRO")}
-                        className={`text-left p-5 rounded-xl border transition-all flex flex-col justify-between ${selectedMethodCard === "DINHEIRO"
-                            ? "bg-amber-500/10 border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.1)]"
-                            : "bg-slate-900/50 border-slate-800 hover:border-slate-700"
-                            }`}
-                    >
-                        <div>
-                            <div className="flex items-center gap-1.5 mb-2">
-                                <DollarSign className={selectedMethodCard === "DINHEIRO" ? "text-amber-400" : "text-amber-500"} size={14} />
-                                <p className="text-slate-500 text-[9px] font-black uppercase tracking-wider">Dinheiro</p>
+                        {/* HERO DE FATURAMENTO */}
+                        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm relative overflow-hidden">
+                            <div className="absolute -right-6 -top-6 text-emerald-500/[0.06]">
+                                <TrendingUp size={110} />
                             </div>
-                            <p className="text-2xl font-black tracking-tight text-white">
-                                {hideValues ? "••••••" : `R$ ${stats.dinheiro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                            </p>
-                        </div>
-                    </button>
 
-                    {/* CARD FATURAMENTO TOTAL */}
-                    <button
-                        onClick={() => handleCardClick("TOTAL")}
-                        className={`text-left p-5 rounded-xl border transition-all flex flex-col justify-between relative overflow-hidden ${selectedMethodCard === "TOTAL"
-                            ? "bg-emerald-600/20 border-emerald-400"
-                            : "bg-emerald-600/10 border-emerald-500/20 hover:border-emerald-500/40"
-                            }`}
-                    >
-                        <div className="absolute right-4 top-4 text-emerald-500/5">
-                            <TrendingUp size={38} />
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-1.5 mb-2">
-                                <TrendingUp className="text-emerald-400" size={14} />
-                                <p className="text-emerald-400 text-[9px] font-black uppercase tracking-wider">
-                                    {filter === "today" ? "Faturamento Dia" : filter === "week" ? "Faturamento Semana" : filter === "month" ? "Faturamento Mês" : "Faturamento Período"}
-                                </p>
-                            </div>
-                            <p className="text-2xl font-black tracking-tight text-emerald-400">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 relative">
+                                {filter === "today" ? "Faturamento de Hoje" : filter === "week" ? "Faturamento da Semana" : filter === "month" ? "Faturamento do Mês" : "Faturamento do Período"}
+                            </p>
+                            <p className="text-4xl font-black tracking-tight text-slate-900 font-mono relative">
                                 {hideValues ? "••••••" : `R$ ${stats.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                             </p>
-                        </div>
-                    </button>
-                </div>
 
-                {/* FILTROS DE DATA E BUSCA */}
-                <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-4 items-center">
-                    <div className="flex flex-wrap sm:flex-nowrap bg-slate-900 border border-slate-800 p-1 rounded-xl gap-1 w-full sm:w-auto shrink-0">
-                        {(["today", "week", "month", "custom"] as const).map((f) => (
+                            {losses > 0 && (
+                                <p className="mt-1.5 text-[11px] font-bold text-red-500 flex items-center gap-1 relative">
+                                    <TrendingDown size={12} />
+                                    {hideValues ? "••••" : `R$ ${losses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} em prejuízos
+                                </p>
+                            )}
+
+                            {/* SELETOR DE PERÍODO — pílulas */}
+                            <div className="mt-5 grid grid-cols-4 gap-1 bg-slate-100 p-1 rounded-full relative">
+                                {(["today", "week", "month", "custom"] as const).map((f) => (
+                                    <button
+                                        key={f}
+                                        onClick={() => {
+                                            setFilter(f);
+                                            setSelectedMethodCard(null);
+                                        }}
+                                        className={`py-1.5 rounded-full text-[9px] font-black uppercase transition-all ${filter === f
+                                            ? "bg-white text-slate-900 shadow-sm"
+                                            : "text-slate-400 hover:text-slate-600"
+                                            }`}
+                                    >
+                                        {f === "today" ? "Hoje" : f === "week" ? "7 dias" : f === "month" ? "Mês" : "Data"}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {filter === "custom" && (
+                                <input
+                                    type="date"
+                                    value={customDate}
+                                    onChange={(e) => {
+                                        setCustomDate(e.target.value);
+                                        setSelectedMethodCard(null);
+                                    }}
+                                    className="mt-2 w-full bg-slate-50 text-slate-700 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-emerald-400 transition-colors relative"
+                                />
+                            )}
+                        </div>
+
+                        {/* QUEBRA POR FORMA DE PAGAMENTO */}
+                        <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-1">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1 mb-2">
+                                Formas de Recebimento
+                            </p>
+
+                            {/* PIX */}
                             <button
-                                key={f}
-                                onClick={() => {
-                                    setFilter(f);
-                                    setSelectedMethodCard(null);
-                                }}
-                                className={`px-4 py-2.5 rounded-lg text-xs font-black transition-all ${filter === f
-                                    ? "bg-white text-slate-950"
-                                    : "text-slate-400 hover:text-slate-200"
+                                onClick={() => handleCardClick("PIX")}
+                                className={`w-full text-left rounded-xl p-2.5 transition-all ${selectedMethodCard === "PIX" ? "bg-emerald-50 ring-1 ring-emerald-300" : "hover:bg-slate-50"
                                     }`}
                             >
-                                {f === "today" ? "HOJE" : f === "week" ? "SEMANA" : f === "month" ? "MÊS" : "DATA ESPECÍFICA"}
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <div className="flex items-center gap-2">
+                                        <Smartphone size={13} className="text-emerald-500" />
+                                        <span className="text-xs font-bold text-slate-600">PIX</span>
+                                    </div>
+                                    <span className="text-xs font-black font-mono text-slate-900">
+                                        {hideValues ? "••••" : `R$ ${stats.pix.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                    </span>
+                                </div>
+                                <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                                    <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${methodPct(stats.pix)}%` }} />
+                                </div>
                             </button>
-                        ))}
 
-                        {filter === "custom" && (
-                            <input
-                                type="date"
-                                value={customDate}
-                                onChange={(e) => {
-                                    setCustomDate(e.target.value);
-                                    setSelectedMethodCard(null);
-                                }}
-                                className="bg-slate-950 text-white border border-slate-800 rounded-lg px-3 py-1 text-xs font-bold outline-none focus:border-emerald-500 transition-colors ml-1"
-                            />
-                        )}
-                    </div>
+                            {/* CARTÃO */}
+                            <button
+                                onClick={() => handleCardClick("CARTAO")}
+                                className={`w-full text-left rounded-xl p-2.5 transition-all ${selectedMethodCard === "CARTAO" ? "bg-blue-50 ring-1 ring-blue-300" : "hover:bg-slate-50"
+                                    }`}
+                            >
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <div className="flex items-center gap-2">
+                                        <CreditCard size={13} className="text-blue-500" />
+                                        <span className="text-xs font-bold text-slate-600">Cartão</span>
+                                    </div>
+                                    <span className="text-xs font-black font-mono text-slate-900">
+                                        {hideValues ? "••••" : `R$ ${stats.cartao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                    </span>
+                                </div>
+                                <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                                    <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${methodPct(stats.cartao)}%` }} />
+                                </div>
+                            </button>
 
-                    <div className="relative w-full">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                        <input
-                            type="text"
-                            placeholder={selectedMethodCard ? `Buscando em ${selectedMethodCard}...` : "Buscar venda no fluxo por item ou cliente..."}
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full bg-slate-900 border border-slate-800 rounded-xl py-3.5 pl-12 pr-4 text-sm text-white outline-none focus:border-emerald-500 transition-colors"
-                        />
-                    </div>
-                </div>
+                            {/* DINHEIRO */}
+                            <button
+                                onClick={() => handleCardClick("DINHEIRO")}
+                                className={`w-full text-left rounded-xl p-2.5 transition-all ${selectedMethodCard === "DINHEIRO" ? "bg-amber-50 ring-1 ring-amber-300" : "hover:bg-slate-50"
+                                    }`}
+                            >
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <div className="flex items-center gap-2">
+                                        <DollarSign size={13} className="text-amber-500" />
+                                        <span className="text-xs font-bold text-slate-600">Dinheiro</span>
+                                    </div>
+                                    <span className="text-xs font-black font-mono text-slate-900">
+                                        {hideValues ? "••••" : `R$ ${stats.dinheiro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                    </span>
+                                </div>
+                                <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                                    <div className="h-full rounded-full bg-amber-500 transition-all" style={{ width: `${methodPct(stats.dinheiro)}%` }} />
+                                </div>
+                            </button>
 
-                {/* AVISO DE FILTRO ATIVO NOS CARDS */}
-                {selectedMethodCard && (
-                    <div className="flex items-center justify-between bg-slate-900/40 border border-slate-800/80 px-4 py-2.5 rounded-xl text-xs text-slate-400">
-                        <span>
-                            Filtrando fluxo apenas por operações via: <strong className="text-white uppercase font-black">{selectedMethodCard}</strong>
-                        </span>
-                        <button
-                            onClick={() => setSelectedMethodCard(null)}
-                            className="text-[10px] text-emerald-500 hover:text-emerald-400 uppercase font-black tracking-wider"
-                        >
-                            [ Limpar Filtro ]
-                        </button>
-                    </div>
-                )}
-
-                {/* LISTA DE VENDAS REFINADA */}
-                <div className="space-y-3">
-                    {isLoading ? (
-                        <div className="py-20 text-center border border-slate-800 rounded-xl text-slate-600 font-bold animate-pulse uppercase text-[10px] tracking-widest">
-                            Sincronizando fluxo de caixa...
-                        </div>
-                    ) : finalFilteredSales.length === 0 ? (
-                        <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-16 text-center text-slate-500 font-bold text-sm">
-                            Nenhuma operação encontrada para os filtros aplicados.
-                        </div>
-                    ) : (
-                        finalFilteredSales.map((sale) => {
-                            const isRefunded = sale.status === "refunded";
-                            const isCancelled = sale.status === "cancelled";
-
-                            // Cálculos para Manutenção
-                            const partCost = sale.partCost || 0;
-                            const profit = sale.total - partCost;
-
-                            return (
-                                <div
-                                    key={sale.id}
-                                    className={`bg-slate-900/40 border rounded-xl p-5 hover:border-slate-700/50 transition-all ${isRefunded
-                                        ? "border-red-900/40 bg-red-950/5 opacity-80"
-                                        : isCancelled
-                                            ? "border-slate-800 bg-slate-950/30 opacity-60"
-                                            : "border-slate-800"
-                                        }`}
+                            {selectedMethodCard && (
+                                <button
+                                    onClick={() => setSelectedMethodCard(null)}
+                                    className="w-full text-center mt-1 py-1.5 text-[9px] text-emerald-600 hover:text-emerald-700 uppercase font-black tracking-wider"
                                 >
-                                    <div className="flex flex-col xl:flex-row gap-6">
+                                    [ Limpar Filtro ]
+                                </button>
+                            )}
+                        </div>
 
-                                        <div className="flex-1 space-y-4">
-                                            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                                                <div className="space-y-2">
-                                                    <div className="flex flex-wrap gap-2 items-center">
-                                                        <h3 className={`text-base font-bold tracking-tight ${isRefunded || isCancelled ? "line-through text-slate-500" : "text-white"}`}>
-                                                            {sale.items.map((item, idx) => (
-                                                                <span key={idx}>
-                                                                    <span className="text-emerald-500 font-bold mr-1">{item.saleQty}x</span>
-                                                                    {item.name}
-                                                                    {idx < sale.items.length - 1 ? ", " : ""}
-                                                                </span>
-                                                            ))}
-                                                        </h3>
+                        {/* BUSCA */}
+                        <div className="relative w-full">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                            <input
+                                type="text"
+                                placeholder="Buscar item ou cliente..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full bg-white border border-slate-200 rounded-2xl py-3 pl-11 pr-4 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10 shadow-sm transition-all"
+                            />
+                        </div>
+                    </aside>
 
-                                                        {/* INDICADORES DE CONDIÇÃO / TIPO */}
-                                                        {sale.type === "manutencao" && (
-                                                            <span className="px-2 py-0.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[9px] font-black rounded uppercase tracking-wider flex items-center gap-1">
-                                                                <Wrench size={10} /> MANUTENÇÃO
-                                                            </span>
-                                                        )}
-                                                      
-                                                        {isRefunded && <span className="px-2 py-0.5 bg-red-500/10 border border-red-500/20 text-red-400 text-[9px] font-black rounded uppercase tracking-wider">REEMBOLSADO</span>}
-                                                        {isCancelled && <span className="px-2 py-0.5 bg-slate-800 text-slate-500 text-[9px] font-black rounded uppercase tracking-wider">CANCELADO</span>}
-                                                        {sale.status === "pending" && <span className="px-2 py-0.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[9px] font-black rounded uppercase tracking-wider">FIADO PENDENTE</span>}
-                                                    </div>
+                    {/* ===== COLUNA DIREITA — EXTRATO EM LINHA DO TEMPO ===== */}
+                    <div className="min-w-0">
+                        {isLoading ? (
+                            <div className="py-24 text-center border border-dashed border-slate-300 bg-white/60 rounded-3xl text-slate-400 font-bold animate-pulse uppercase text-[10px] tracking-widest">
+                                Sincronizando fluxo de caixa...
+                            </div>
+                        ) : finalFilteredSales.length === 0 ? (
+                            <div className="bg-white border border-dashed border-slate-300 rounded-3xl p-20 text-center text-slate-400 font-bold text-sm">
+                                Nenhuma operação encontrada para os filtros aplicados.
+                            </div>
+                        ) : (
+                            <div className="space-y-8">
+                                {Object.entries(groupedSales).map(([dateKey, salesForDate]) => (
+                                    <div key={dateKey}>
+                                        {/* CABEÇALHO DO DIA */}
+                                        <div className="flex items-center gap-3 mb-4">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">
+                                                {dateKey === todayLabel ? "Hoje" : dateKey}
+                                            </span>
+                                            <div className="flex-1 h-px bg-slate-200" />
+                                            <span className="text-[10px] font-bold text-slate-300 whitespace-nowrap">
+                                                {salesForDate.length} {salesForDate.length === 1 ? "operação" : "operações"}
+                                            </span>
+                                        </div>
 
-                                                    <div className="flex flex-wrap gap-1.5">
-                                                        <div className="bg-slate-950/60 border border-slate-800/60 rounded px-2 py-0.5 text-[9px] font-bold uppercase text-slate-500 flex items-center gap-1">
-                                                            <Clock size={10} />
-                                                            {sale.time}
-                                                        </div>
-                                                        <div className="bg-slate-950/60 border border-slate-800/60 rounded px-2 py-0.5 text-[9px] font-bold uppercase text-slate-500 flex items-center gap-1">
-                                                            <Calendar size={10} />
-                                                            {sale.date}
-                                                        </div>
-                                                        {sale.clientName && (
-                                                            <div className="bg-slate-950/60 border border-slate-800/60 rounded px-2 py-0.5 text-[9px] font-bold text-slate-400 flex items-center gap-1">
-                                                                <User size={10} className="text-slate-500" />
-                                                                {sale.clientName}
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                        {/* LINHA DO TEMPO */}
+                                        <div className="relative border-l-2 border-slate-200 ml-1.5 space-y-3">
+                                            {salesForDate.map((sale) => {
+                                                const isRefunded = sale.status === "refunded";
+                                                const isCancelled = sale.status === "cancelled";
+                                                const isLossSale = isLoss(sale);
+                                                const partCost = sale.partCost || 0;
+                                                const profit = sale.total - partCost;
 
-                                                    {/* BLOCO DE VISUALIZAÇÃO SE FOR MANUTENÇÃO */}
-                                                    {sale.type === "manutencao" && !isRefunded && !isCancelled && (
-                                                        <div className="mt-3 bg-slate-950/40 border border-slate-800/60 rounded-xl p-3 grid grid-cols-3 gap-2 max-w-md">
-                                                            <div>
-                                                                <p className="text-[8px] font-black text-slate-500 uppercase">Custo Peça</p>
-                                                                <p className="text-xs font-bold text-red-400">{hideValues ? "•••" : `R$ ${partCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}</p>
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-[8px] font-black text-slate-500 uppercase">Venda Bruta</p>
-                                                                <p className="text-xs font-bold text-slate-300">{hideValues ? "•••" : `R$ ${sale.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}</p>
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-[8px] font-black text-emerald-500 uppercase">Lucro Líquido</p>
-                                                                <p className="text-xs font-black text-emerald-400">{hideValues ? "•••" : `R$ ${profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}</p>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
+                                                return (
+                                                    <div key={sale.id} className="relative pl-6">
+                                                        {/* MARCADOR NA LINHA DO TEMPO */}
+                                                        <span className={`absolute -left-[7px] top-5 w-3 h-3 rounded-full ring-4 ${dotClasses(sale)}`} />
 
-                                                <div className="text-left md:text-right flex flex-col md:items-end justify-between">
-                                                    <div>
-                                                        <p className="text-[9px] text-slate-500 uppercase font-black tracking-wider mb-0.5">Valor Total</p>
-                                                        <p className={`text-xl font-bold tracking-tight ${isRefunded || isCancelled ? "line-through text-slate-500" : "text-white"}`}>
-                                                            {hideValues ? "•••••" : `R$ ${sale.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                                                        </p>
-                                                    </div>
+                                                        <div
+                                                            className={`rounded-2xl border p-4 transition-shadow ${isLossSale
+                                                                    ? "bg-red-50/60 border-red-200"
+                                                                    : isRefunded
+                                                                        ? "bg-red-50/20 border-red-100 opacity-80"
+                                                                        : isCancelled
+                                                                            ? "bg-slate-50/60 border-slate-200 opacity-60"
+                                                                            : "bg-white border-slate-200 shadow-sm hover:shadow-md"
+                                                                }`}
+                                                        >
+                                                            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
 
-                                                    {/* FORMA(S) DE PAGAMENTO */}
-                                                    <div className="mt-2">
-                                                        {sale.multiplePayments && sale.multiplePayments.length > 0 ? (
-                                                            <div className="flex flex-col gap-1 items-start md:items-end">
-                                                                <p className="text-[8px] font-bold text-slate-500 uppercase">Divisão de Pagamento:</p>
-                                                                <div className="flex flex-wrap gap-1 justify-start md:justify-end">
-                                                                    {sale.multiplePayments.map((p, pIdx) => (
-                                                                        <span key={pIdx} className="text-[9px] font-black px-1.5 py-0.5 rounded bg-purple-950/40 border border-purple-900/40 text-purple-300 uppercase">
-                                                                            {p.method}: {hideValues ? "••" : `R$ ${p.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                                                {/* CONTEÚDO PRINCIPAL */}
+                                                                <div className="min-w-0 flex-1">
+                                                                    <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                                                                        <span className="text-[10px] font-bold text-slate-400 font-mono flex items-center gap-1">
+                                                                            <Clock size={10} /> {sale.time}
                                                                         </span>
-                                                                    ))}
+
+                                                                        {sale.type === "manutencao" && (
+                                                                            <span className="px-2 py-0.5 bg-blue-50 border border-blue-200 text-blue-600 text-[9px] font-black rounded-full uppercase tracking-wider flex items-center gap-1">
+                                                                                <Wrench size={9} /> Manutenção
+                                                                            </span>
+                                                                        )}
+                                                                        {isLossSale && (
+                                                                            <span className="px-2 py-0.5 bg-red-600 text-white text-[9px] font-black rounded-full uppercase tracking-wider flex items-center gap-1">
+                                                                                <TrendingDown size={9} /> Prejuízo
+                                                                            </span>
+                                                                        )}
+                                                                        {isRefunded && <span className="px-2 py-0.5 bg-red-50 border border-red-200 text-red-500 text-[9px] font-black rounded-full uppercase tracking-wider">Reembolsado</span>}
+                                                                        {isCancelled && <span className="px-2 py-0.5 bg-slate-100 text-slate-400 text-[9px] font-black rounded-full uppercase tracking-wider">Cancelado</span>}
+                                                                        {sale.status === "pending" && <span className="px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-600 text-[9px] font-black rounded-full uppercase tracking-wider">Fiado Pendente</span>}
+                                                                    </div>
+
+                                                                    <h3 className={`text-sm font-bold tracking-tight truncate ${isRefunded || isCancelled ? "line-through text-slate-400" : "text-slate-900"}`}>
+                                                                        {sale.items.map((item, idx) => (
+                                                                            <span key={idx}>
+                                                                                <span className="text-emerald-600 font-bold mr-1">{item.saleQty}x</span>
+                                                                                {item.name}
+                                                                                {idx < sale.items.length - 1 ? ", " : ""}
+                                                                            </span>
+                                                                        ))}
+                                                                    </h3>
+
+                                                                    {sale.clientName && (
+                                                                        <p className="text-[11px] text-slate-400 font-bold mt-0.5 flex items-center gap-1">
+                                                                            <User size={10} /> {sale.clientName}
+                                                                        </p>
+                                                                    )}
+
+                                                                    {sale.type === "manutencao" && !isRefunded && !isCancelled && !isLossSale && (
+                                                                        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-bold">
+                                                                            <span className="text-red-500">Peça: {hideValues ? "•••" : `R$ ${partCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}</span>
+                                                                            <span className="text-emerald-600">Lucro: {hideValues ? "•••" : `R$ ${profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}</span>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {isLossSale && (
+                                                                        <p className="mt-2 text-[11px] font-bold text-red-500">
+                                                                            Prejuízo assumido nesta operação.
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+
+                                                                {/* VALOR + PAGAMENTO + AÇÕES */}
+                                                                <div className="flex flex-row md:flex-col items-end justify-between md:justify-start gap-2 shrink-0 md:text-right md:min-w-[130px]">
+                                                                    <div>
+                                                                        <p className={`text-lg font-black font-mono tracking-tight ${isLossSale
+                                                                                ? "text-red-600"
+                                                                                : isRefunded || isCancelled
+                                                                                    ? "line-through text-slate-400"
+                                                                                    : "text-slate-900"
+                                                                            }`}>
+                                                                            {hideValues ? "•••••" : `R$ ${sale.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                                                        </p>
+
+                                                                        {sale.multiplePayments && sale.multiplePayments.length > 0 ? (
+                                                                            <div className="flex flex-wrap gap-1 justify-end mt-1">
+                                                                                {sale.multiplePayments.map((p, pIdx) => (
+                                                                                    <span key={pIdx} className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-purple-50 border border-purple-200 text-purple-600 uppercase">
+                                                                                        {p.method}
+                                                                                    </span>
+                                                                                ))}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-slate-50 border border-slate-200 text-slate-500 uppercase inline-block mt-1">
+                                                                                {sale.payment}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+
+                                                                    {!isRefunded && !isCancelled && (
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            <button
+                                                                                onClick={() => {
+                                                                                    setSaleToEdit(sale);
+                                                                                    setIsEditModalOpen(true);
+                                                                                }}
+                                                                                title="Editar"
+                                                                                className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-900 border border-slate-200 transition-colors"
+                                                                            >
+                                                                                <Pencil size={12} />
+                                                                            </button>
+
+                                                                            <button
+                                                                                onClick={() => {
+                                                                                    setRefundSaleId(sale.id);
+                                                                                    setIsModalOpen(true);
+                                                                                }}
+                                                                                title="Estornar"
+                                                                                className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 hover:border-rose-200 transition-colors"
+                                                                            >
+                                                                                <Undo2 size={12} />
+                                                                            </button>
+
+                                                                            <button
+                                                                                onClick={() => handlePrintSale(sale)}
+                                                                                title="Imprimir Cupom"
+                                                                                className="w-7 h-7 flex items-center justify-center rounded-lg bg-emerald-50 hover:bg-emerald-600 text-emerald-600 hover:text-white border border-emerald-200 transition-colors"
+                                                                            >
+                                                                                <Printer size={12} />
+                                                                            </button>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                             </div>
-                                                        ) : (
-                                                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400 uppercase inline-block">
-                                                                {sale.payment}
-                                                            </span>
-                                                        )}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </div>
+                                                );
+                                            })}
                                         </div>
-
-                                        <div className="xl:w-36 flex xl:flex-col gap-2 justify-center shrink-0 border-t xl:border-t-0 xl:border-l border-slate-800/60 pt-4 xl:pt-0 xl:pl-4">
-                                            {!isRefunded && !isCancelled && (
-                                                <>
-                                                    <button
-                                                        onClick={() => {
-                                                            setSaleToEdit(sale);
-                                                            setIsEditModalOpen(true);
-                                                        }}
-                                                        className="flex-1 xl:w-full bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg py-2 font-bold text-slate-400 hover:text-white flex items-center justify-center gap-1.5 transition-all text-xs active:scale-[0.97]"
-                                                    >
-                                                        <Pencil size={13} />
-                                                        Editar
-                                                    </button>
-
-                                                    <button
-                                                        onClick={() => {
-                                                            setRefundSaleId(sale.id);
-                                                            setIsModalOpen(true);
-                                                        }}
-                                                        className="flex-1 xl:w-full bg-slate-950 hover:bg-rose-950/20 border border-slate-800 hover:border-rose-900/30 rounded-lg py-2 font-bold text-slate-500 hover:text-rose-400 flex items-center justify-center gap-1.5 transition-all text-xs active:scale-[0.97]"
-                                                    >
-                                                        <Undo2 size={13} />
-                                                        Estornar
-                                                    </button>
-
-                                                    <button
-                                                        onClick={() => handlePrintSale(sale)}
-                                                        className="flex-1 xl:w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg py-2 font-bold text-xs transition-all active:scale-[0.97]"
-                                                    >
-                                                        Imprimir Cupom
-                                                    </button>
-                                                </>
-                                            )}
-                                        </div>
-
                                     </div>
-                                </div>
-                            );
-                        })
-                    )}
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
             </div>

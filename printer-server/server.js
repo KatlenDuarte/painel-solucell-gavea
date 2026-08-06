@@ -291,10 +291,15 @@ app.post("/print", async (req, res) => {
     const html = gerarHtmlCupom(sale);
     const pdfPath = path.join(os.tmpdir(), `cupom_${Date.now()}.pdf`);
 
-    browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"]
-    });
+browser = await puppeteer.launch({
+  executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  headless: true,
+  args: [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-gpu"
+  ]
+});
 
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "networkidle0" });

@@ -57,6 +57,9 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({ onClose, storeEmail, onSale
     const [stock, setStock] = useState<Product[]>([]);
     const [productSearch, setProductSearch] = useState("");
 
+    const [showPrintModal, setShowPrintModal] = useState(false);
+    const [saleToPrint, setSaleToPrint] = useState<any>(null);
+
     // --- ESTADOS VENDA ---
     const [selectedProducts, setSelectedProducts] = useState<SaleItem[]>([]);
     const [discount, setDiscount] = useState(0);
@@ -126,6 +129,31 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({ onClose, storeEmail, onSale
         };
     }, [stock, activeTab]);
 
+    const handlePrint = async () => {
+        if (!saleToPrint) return;
+
+        try {
+            await fetch("http://localhost:3333/print", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    items: saleToPrint.items,
+                    total: saleToPrint.total,
+                    paymentMethod: saleToPrint.paymentMethod,
+                    discount: saleToPrint.discount || 0,
+                }),
+            });
+        } catch (err) {
+            console.error(err);
+        }
+
+        setShowPrintModal(false);
+        onSaleComplete();
+        onClose();
+    };
+
     // Carregar estoque inicial
     useEffect(() => {
         const load = async () => {
@@ -184,28 +212,28 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({ onClose, storeEmail, onSale
                 }
                 saleData.status = "completed";
                 saleData.paymentMethod = "Múltiplos";
-     saleData.multiplePayments = [];
+                saleData.multiplePayments = [];
 
-if (payments.pix > 0) {
-    saleData.multiplePayments.push({
-        method: "PIX",
-        value: payments.pix
-    });
-}
+                if (payments.pix > 0) {
+                    saleData.multiplePayments.push({
+                        method: "PIX",
+                        value: payments.pix
+                    });
+                }
 
-if (payments.cartao > 0) {
-    saleData.multiplePayments.push({
-        method: "CARTÃO",
-        value: payments.cartao
-    });
-}
+                if (payments.cartao > 0) {
+                    saleData.multiplePayments.push({
+                        method: "CARTÃO",
+                        value: payments.cartao
+                    });
+                }
 
-if (payments.dinheiro > 0) {
-    saleData.multiplePayments.push({
-        method: "DINHEIRO",
-        value: payments.dinheiro
-    });
-}
+                if (payments.dinheiro > 0) {
+                    saleData.multiplePayments.push({
+                        method: "DINHEIRO",
+                        value: payments.dinheiro
+                    });
+                }
                 saleData.total = totalFinalCalculado;
                 saleData.items = activeTab === 'venda'
                     ? selectedProducts.map(i => ({ id: i.id, name: i.name, price: i.price, saleQty: i.saleQty }))
@@ -249,76 +277,67 @@ if (payments.dinheiro > 0) {
             }
 
             // TRANSACTION - Baixa de estoque segura
-   await runTransaction(db, async (transaction) => {
+            // TRANSACTION - Baixa de estoque segura
+            await runTransaction(db, async (transaction) => {
 
-    console.log(
-        "Produtos na venda:",
-        activeTab === "perda"
-            ? lossProducts.length
-            : selectedProducts.length
-    );
+                const itemsToUpdate =
+                    activeTab === "perda"
+                        ? lossProducts
+                        : activeTab === "venda"
+                            ? selectedProducts
+                            : []; // manutenção não baixa estoque aqui
 
-    const itemsToUpdate =
-        activeTab === "perda"
-            ? lossProducts
-            : selectedProducts;
+                const updates: {
+                    ref: any;
+                    snap: any;
+                    qty: number;
+                }[] = [];
 
-    const productsToUpdate: any[] = [];
+                // Lê todos os produtos apenas uma vez
+                for (const item of itemsToUpdate) {
 
-    // 1º PASSO - LER TUDO
-    for (const item of itemsToUpdate) {
+                    if (item.id.startsWith("avulso-")) continue;
 
-        if (item.id.startsWith("avulso-")) continue;
+                    const ref = doc(db, "products", item.id);
 
-        const productRef = doc(db, "products", item.id);
+                    const snap = await transaction.get(ref);
 
-        const productSnap =
-            await transaction.get(productRef);
+                    if (!snap.exists()) {
+                        throw new Error(`Produto ${item.name} não encontrado.`);
+                    }
 
-        productsToUpdate.push({
-            ref: productRef,
-            snap: productSnap,
-            qty: item.saleQty
-        });
-    }
+                    const stock = snap.data().stock ?? 0;
 
-    // 2º PASSO - ESCREVER TUDO
-    for (const product of productsToUpdate) {
+                    if (stock < item.saleQty) {
+                        throw new Error(
+                            `Estoque insuficiente para ${item.name}.`
+                        );
+                    }
 
-        if (!product.snap.exists()) continue;
+                    updates.push({
+                        ref,
+                        snap,
+                        qty: item.saleQty
+                    });
+                }
 
-        const currentStock =
-            product.snap.data().stock || 0;
+                // Atualiza estoque
+                for (const item of updates) {
 
-        transaction.update(product.ref, {
-            stock: Math.max(
-                0,
-                currentStock - product.qty
-            )
-        });
-    }
+                    const stock = item.snap.data().stock ?? 0;
 
-    const newSaleRef = doc(collection(db, "sales"));
+                    transaction.update(item.ref, {
+                        stock: stock - item.qty
+                    });
+                }
 
-    transaction.set(newSaleRef, saleData);
-});
+                // Salva venda
+                const saleRef = doc(collection(db, "sales"));
 
-            try {
-                await fetch("http://localhost:3333/print", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        items: saleData.items,
-                        total: saleData.total,
-                        paymentMethod: saleData.paymentMethod,
-                        discount: saleData.discount || 0
-                    })
-                });
-            } catch (pErr) { console.log("Impressora offline."); }
-
-            alert("Operação registrada com sucesso!");
-            onSaleComplete();
-            onClose();
+                transaction.set(saleRef, saleData);
+            });
+            setSaleToPrint(saleData);
+            setShowPrintModal(true);
 
         } catch (error: any) {
             console.error(error);
@@ -635,6 +654,44 @@ if (payments.dinheiro > 0) {
                         >
                             {isLoading ? "Processando..." : "Concluir Lançamento"}
                         </button>
+
+                        {showPrintModal && (
+                            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[999]">
+                                <div className="bg-slate-900 border border-slate-700 rounded-xl w-[400px] p-6">
+
+                                    <h2 className="text-xl font-bold text-white mb-2">
+                                        Venda concluída
+                                    </h2>
+
+                                    <p className="text-slate-300 mb-6">
+                                        Deseja imprimir o cupom?
+                                    </p>
+
+                                    <div className="flex justify-end gap-3">
+
+                                        <button
+                                            onClick={() => {
+                                                setShowPrintModal(false);
+                                                onSaleComplete();
+                                                onClose();
+                                            }}
+                                            className="px-4 py-2 rounded-lg bg-slate-700 text-white"
+                                        >
+                                            Não
+                                        </button>
+
+                                        <button
+                                            onClick={handlePrint}
+                                            className="px-4 py-2 rounded-lg bg-emerald-600 text-white"
+                                        >
+                                            Imprimir
+                                        </button>
+
+                                    </div>
+
+                                </div>
+                            </div>
+                        )}
                     </aside>
 
                 </main>

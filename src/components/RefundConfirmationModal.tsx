@@ -29,66 +29,7 @@ const RefundConfirmationModal: React.FC<RefundConfirmationModalProps> = ({
         const saleRef = doc(db, "sales", saleId);
 
         try {
-            await runTransaction(db, async (transaction) => {
-
-                // 1. BUSCAR DETALHES DA VENDA (DENTRO DA TRANSAÇÃO)
-                const saleSnap = await transaction.get(saleRef);
-
-                if (!saleSnap.exists()) {
-                    throw new Error("Venda não encontrada.");
-                }
-
-                const saleData = saleSnap.data() as any;
-
-                // Impede o reembolso se já estiver reembolsado
-                if (saleData.status === "refunded") {
-                    console.log("Transação cancelada: Venda já reembolsada.");
-                    // Throwing an error here will cancel the transaction but won't be caught by the outer try/catch
-                    // We just return to skip the updates.
-                    return;
-                }
-
-                // 2. DEVOLVER PRODUTOS AO ESTOQUE
-                // 2. LER TODOS OS PRODUTOS PRIMEIRO
-                const productsToRefund: any[] = [];
-
-                for (const item of saleData.items) {
-                    const productId = item.id;
-                    const refundedQty = item.saleQty;
-
-                    if (!productId || refundedQty <= 0) continue;
-
-                    const productRef = doc(db, "products", productId);
-
-                    const productSnap = await transaction.get(productRef);
-
-                    productsToRefund.push({
-                        ref: productRef,
-                        snap: productSnap,
-                        qty: refundedQty
-                    });
-                }
-
-                // 3. FAZER TODOS OS UPDATES DEPOIS
-                for (const product of productsToRefund) {
-
-                    if (!product.snap.exists()) continue;
-
-                    const currentStock =
-                        product.snap.data().stock || 0;
-
-                    transaction.update(product.ref, {
-                        stock: currentStock + product.qty
-                    });
-                }
-
-                // 3. ATUALIZAR STATUS DA VENDA (USA transaction.update)
-                transaction.update(saleRef, {
-                    status: "refunded",
-                });
-
-                // Transação finaliza com sucesso.
-            });
+        
 
             // Se a transação foi bem-sucedida, chama a callback e fecha o modal.
             onRefundSuccess(saleId);
