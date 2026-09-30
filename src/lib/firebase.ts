@@ -2,7 +2,11 @@
 
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore"; // ❗ Adicione o getFirestore
+import {
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBHFDpA0WlVOYga1eVoBsd90P_l8Pdnzzg",
@@ -18,4 +22,9 @@ const app = initializeApp(firebaseConfig);
 
 // Exporta os serviços
 export const auth = getAuth(app);
-export const db = getFirestore(app); // ❗ Exporta o Firestore (db)
+
+// Cache local persistente (IndexedDB): ao reabrir o painel, os listeners
+// retomam do cache e o servidor só cobra os documentos que mudaram.
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+});

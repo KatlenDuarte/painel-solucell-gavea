@@ -1,7 +1,7 @@
 // src/screens/DashboardPage.tsx
-import React, { useEffect, useState, useMemo } from "react";
-import { collection, getDocs, query, where, Timestamp } from "firebase/firestore";
-import { db } from "../lib/firebase";
+import React, { useState, useMemo } from "react";
+import { Timestamp } from "firebase/firestore";
+import { useStoreData } from "../contexts/StoreDataContext";
 import {
   DollarSign, CreditCard, Package, Zap, AlertTriangle, Users, Calendar, ArrowUpRight, TrendingUp
 } from "lucide-react";
@@ -25,41 +25,23 @@ interface Sale {
   store: string;
 }
 
-interface DashboardProps {
-  storeEmail: string | null;
-}
-
-export default function DashboardPage({ storeEmail }: DashboardProps) {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [sales, setSales] = useState<Sale[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function DashboardPage() {
+  const { products: productDocs, sales: salesDocs, productsLoading, salesLoading } = useStoreData();
+  const loading = productsLoading || salesLoading;
 
   // Filtros de Escopo
   const [activeFilter, setActiveFilter] = useState<'today' | 'month' | 'all'>('today');
   const [selectedDate, setSelectedDate] = useState<string>("");
 
-  useEffect(() => {
-    if (!storeEmail) return;
-
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const prodQuery = query(collection(db, "products"), where("store", "==", storeEmail));
-        const prodSnap = await getDocs(prodQuery);
-        setProducts(prodSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
-
-        const salesQuery = query(collection(db, "sales"), where("store", "==", storeEmail));
-        const salesSnap = await getDocs(salesQuery);
-        setSales(salesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sale)));
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [storeEmail]);
+  // Dados em tempo real pelo listener compartilhado (StoreDataContext).
+  const products = useMemo(
+    () => productDocs.map(doc => ({ id: doc.id, ...doc.data() } as Product)),
+    [productDocs]
+  );
+  const sales = useMemo(
+    () => salesDocs.map(doc => ({ id: doc.id, ...doc.data() } as Sale)),
+    [salesDocs]
+  );
 
   // Pipeline Analítico (Engine de Inteligência Computacional do Dashboard)
   const stats = useMemo(() => {
@@ -117,14 +99,14 @@ export default function DashboardPage({ storeEmail }: DashboardProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#020617] flex items-center justify-center text-slate-500 text-xs font-black uppercase tracking-widest animate-pulse">
+      <div className="min-h-[60vh] flex items-center justify-center text-slate-500 text-xs font-black uppercase tracking-widest animate-pulse">
         Sincronizando métricas de rede...
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-300 p-4 md:p-8 antialiased selection:bg-emerald-500/30">
+    <div className="text-slate-300 p-4 md:p-8 antialiased selection:bg-emerald-500/30">
       <div className="max-w-7xl mx-auto space-y-6">
 
         {/* HEADER */}
@@ -138,7 +120,7 @@ export default function DashboardPage({ storeEmail }: DashboardProps) {
                 Live Data
               </span>
             </div>
-            <h1 className="text-3xl font-black text-white tracking-tight uppercase">
+            <h1 className="text-3xl font-black text-slate-50 tracking-tight uppercase">
               Dashboard<span className="text-emerald-500">.</span>
             </h1>
           </div>
@@ -152,7 +134,7 @@ export default function DashboardPage({ storeEmail }: DashboardProps) {
                   onClick={() => setActiveFilter(filter)}
                   className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
                     activeFilter === filter
-                      ? "bg-slate-800 text-white border border-slate-700 shadow-md"
+                      ? "bg-slate-800 text-slate-50 border border-slate-700 shadow-md"
                       : "bg-transparent text-slate-500 hover:text-slate-300"
                   }`}
                 >
@@ -169,7 +151,7 @@ export default function DashboardPage({ storeEmail }: DashboardProps) {
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                className="bg-transparent text-[10px] font-black uppercase tracking-wider outline-none text-white cursor-pointer"
+                className="bg-transparent text-[10px] font-black uppercase tracking-wider outline-none text-slate-50 cursor-pointer"
               />
             </div>
           </div>
@@ -184,7 +166,7 @@ export default function DashboardPage({ storeEmail }: DashboardProps) {
               <DollarSign size={16} />
             </div>
             <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Receita Período</p>
-            <h3 className="text-2xl font-black tracking-tight text-white mt-2">
+            <h3 className="text-2xl font-black tracking-tight text-slate-50 mt-2">
               R$ {stats.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </h3>
             <p className="text-[10px] font-bold text-slate-500 mt-1 flex items-center gap-1">
@@ -199,7 +181,7 @@ export default function DashboardPage({ storeEmail }: DashboardProps) {
               <CreditCard size={16} />
             </div>
             <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Fiados Ativos</p>
-            <h3 className="text-2xl font-black tracking-tight text-white mt-2">{stats.fiadosCount}</h3>
+            <h3 className="text-2xl font-black tracking-tight text-slate-50 mt-2">{stats.fiadosCount}</h3>
             <p className="text-[10px] font-bold text-rose-400 mt-1">
               Total: R$ {stats.fiadosTotal.toLocaleString('pt-BR')} <span className="text-slate-600 font-medium">({stats.fiadoRatio.toFixed(0)}% do total)</span>
             </p>
@@ -211,7 +193,7 @@ export default function DashboardPage({ storeEmail }: DashboardProps) {
               <Package size={16} />
             </div>
             <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Estoque Crítico</p>
-            <h3 className="text-2xl font-black tracking-tight text-white mt-2">{stats.lowStockCount}</h3>
+            <h3 className="text-2xl font-black tracking-tight text-slate-50 mt-2">{stats.lowStockCount}</h3>
             <p className="text-[10px] font-bold text-amber-400 mt-1">Gargalos de reposição</p>
           </div>
 
@@ -221,7 +203,7 @@ export default function DashboardPage({ storeEmail }: DashboardProps) {
               <Zap size={16} />
             </div>
             <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Ticket Médio</p>
-            <h3 className="text-2xl font-black tracking-tight text-white mt-2">
+            <h3 className="text-2xl font-black tracking-tight text-slate-50 mt-2">
               R$ {(stats.salesCount > 0 ? stats.totalRevenue / stats.salesCount : 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}
             </h3>
             <p className="text-[10px] font-bold text-blue-400 mt-1">Média de valor bruto por venda</p>
@@ -237,7 +219,7 @@ export default function DashboardPage({ storeEmail }: DashboardProps) {
             <div className="p-5 border-b border-slate-900 flex justify-between items-center bg-slate-900/20">
               <div>
                 <span className="text-slate-500 text-[9px] font-black uppercase tracking-widest block">Créditos de Risco</span>
-                <h3 className="text-sm font-black text-white uppercase tracking-tight mt-0.5">Contas a Receber</h3>
+                <h3 className="text-sm font-black text-slate-50 uppercase tracking-tight mt-0.5">Contas a Receber</h3>
               </div>
               <span className="px-2 py-1 rounded border border-rose-500/20 bg-rose-500/10 text-rose-400 text-[9px] font-black uppercase tracking-wider flex items-center gap-1">
                 <AlertTriangle size={10} /> Inadimplência Alvo
@@ -268,7 +250,7 @@ export default function DashboardPage({ storeEmail }: DashboardProps) {
                             <div className="w-8 h-8 bg-slate-950 border border-slate-900 rounded-xl flex items-center justify-center text-slate-400">
                               <Users size={14} />
                             </div>
-                            <span className="text-white font-bold text-xs tracking-tight">{sale.clientName || "Cliente não Identificado"}</span>
+                            <span className="text-slate-50 font-bold text-xs tracking-tight">{sale.clientName || "Cliente não Identificado"}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4 text-slate-500 text-xs font-medium">
@@ -294,7 +276,7 @@ export default function DashboardPage({ storeEmail }: DashboardProps) {
                 </div>
                 <div>
                   <span className="text-slate-500 text-[9px] font-black uppercase tracking-widest block">Insumos Mínimos</span>
-                  <h4 className="text-xs font-black text-white uppercase tracking-tight">Reposição Urgente</h4>
+                  <h4 className="text-xs font-black text-slate-50 uppercase tracking-tight">Reposição Urgente</h4>
                 </div>
               </div>
             </div>
@@ -308,7 +290,7 @@ export default function DashboardPage({ storeEmail }: DashboardProps) {
                   return (
                     <div key={item.id} className="flex justify-between items-center p-3.5 bg-slate-950/40 rounded-xl border border-slate-900/60">
                       <div>
-                        <p className="text-white font-bold text-xs tracking-tight">{item.name}</p>
+                        <p className="text-slate-50 font-bold text-xs tracking-tight">{item.name}</p>
                         <p className="text-slate-500 text-[10px] font-medium uppercase tracking-wide mt-0.5">{item.brand}</p>
                       </div>
                       <div className="text-right space-y-1">

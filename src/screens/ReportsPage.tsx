@@ -283,18 +283,18 @@ export default function Reports() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#020617] flex items-center justify-center text-slate-400 text-xs font-semibold uppercase tracking-widest animate-pulse">
+            <div className="min-h-[60vh] flex items-center justify-center text-slate-400 text-xs font-semibold uppercase tracking-widest animate-pulse">
                 Carregando relatório de movimentações...
             </div>
         );
     }
 
     return (
-        <div ref={reportRef} className="p-4 md:p-8 bg-[#020617] min-h-screen space-y-6 text-slate-300 antialiased selection:bg-blue-500/30">
+        <div ref={reportRef} className="p-4 md:p-8 space-y-6 text-slate-300 antialiased selection:bg-blue-500/30">
             {/* Header */}
             <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-900 pb-6">
                 <div>
-                    <h1 className="text-2xl font-black text-white tracking-tight uppercase">
+                    <h1 className="text-2xl font-black text-slate-50 tracking-tight uppercase">
                         Relatório de <span className="text-blue-500">vendas</span>
                     </h1>
                     <p className="text-slate-500 text-[11px] font-medium tracking-wide mt-1">
@@ -326,7 +326,7 @@ export default function Reports() {
                             <button
                                 key={value}
                                 onClick={() => setPeriod(value as any)}
-                                className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all ${period === value ? "bg-slate-800 text-white border border-slate-700" : "bg-transparent text-slate-500 hover:text-slate-300 border border-transparent"
+                                className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all ${period === value ? "bg-slate-800 text-slate-50 border border-slate-700" : "bg-transparent text-slate-500 hover:text-slate-300 border border-transparent"
                                     }`}
                             >
                                 {label}
@@ -345,7 +345,7 @@ export default function Reports() {
                                 setSelectedMonth(Number(e.target.value));
                                 setPeriod("custom_month");
                             }}
-                            className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-medium text-white outline-none focus:border-slate-700 transition-colors"
+                            className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-medium text-slate-50 outline-none focus:border-slate-700 transition-colors"
                         >
                             {Array.from({ length: 12 }, (_, i) => (
                                 <option key={i} value={i} className="bg-slate-950 text-slate-300">
@@ -360,7 +360,7 @@ export default function Reports() {
                                 setSelectedYear(Number(e.target.value));
                                 setPeriod("custom_month");
                             }}
-                            className="w-20 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-medium text-white outline-none text-center focus:border-slate-700 transition-colors"
+                            className="w-20 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-medium text-slate-50 outline-none text-center focus:border-slate-700 transition-colors"
                         />
                     </div>
                 </div>
@@ -379,7 +379,7 @@ export default function Reports() {
                                 setStartDate(e.target.value);
                                 setPeriod("custom");
                             }}
-                            className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white outline-none"
+                            className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-50 outline-none"
                         />
 
                         <input
@@ -389,7 +389,7 @@ export default function Reports() {
                                 setEndDate(e.target.value);
                                 setPeriod("custom");
                             }}
-                            className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white outline-none"
+                            className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-50 outline-none"
                         />
                     </div>
 
@@ -406,7 +406,7 @@ export default function Reports() {
                         <DollarSign size={24} />
                     </div>
                     <p className="text-slate-500 text-xs font-medium uppercase">Faturamento Líquido</p>
-                    <h3 className="text-2xl font-bold text-white tracking-tight mt-1">R$ {metrics.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+                    <h3 className="text-2xl font-bold text-slate-50 tracking-tight mt-1">R$ {metrics.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
                     <div className="mt-3 flex flex-wrap gap-1.5 text-[10px] font-medium text-slate-400">
                         <span className="bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10 text-emerald-400">PIX: R$ {metrics.totalPix.toFixed(0)}</span>
                         <span className="bg-blue-500/5 px-2 py-0.5 rounded border border-blue-500/10 text-blue-400">Card: R$ {metrics.totalCartao.toFixed(0)}</span>
@@ -419,7 +419,7 @@ export default function Reports() {
                         <ShoppingCart size={24} />
                     </div>
                     <p className="text-slate-500 text-xs font-medium uppercase">Volume Total</p>
-                    <h3 className="text-2xl font-bold text-white tracking-tight mt-1">{metrics.totalSales} Vendas</h3>
+                    <h3 className="text-2xl font-bold text-slate-50 tracking-tight mt-1">{metrics.totalSales} Vendas</h3>
                     <p className="text-slate-600 text-[10px] font-medium mt-3 uppercase tracking-wider">Período ativo selecionado</p>
                 </div>
 
@@ -428,7 +428,7 @@ export default function Reports() {
                         <CreditCard size={24} />
                     </div>
                     <p className="text-slate-500 text-xs font-medium uppercase">Ticket Médio</p>
-                    <h3 className="text-2xl font-bold text-white tracking-tight mt-1">R$ {metrics.avgTicket.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+                    <h3 className="text-2xl font-bold text-slate-50 tracking-tight mt-1">R$ {metrics.avgTicket.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
                     <p className="text-slate-600 text-[10px] font-medium mt-3 uppercase tracking-wider">Média geométrica por pedido</p>
                 </div>
             </div>
@@ -448,7 +448,7 @@ export default function Reports() {
                                                 placeholder="Localizar venda..."
                                                 value={searchTerm}
                                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white outline-none focus:border-slate-700 transition-all placeholder-slate-700"
+                                                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-50 outline-none focus:border-slate-700 transition-all placeholder-slate-700"
                                             />
                                         </div>
                                     </div>
@@ -511,7 +511,7 @@ export default function Reports() {
                                                     {sale.id}
                                                 </p>
                                             </td>
-                                            <td className="px-6 py-4 font-bold text-white text-xs">
+                                            <td className="px-6 py-4 font-bold text-slate-50 text-xs">
                                                 R$ {sale.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                             </td>
                                             <td className="px-6 py-4 text-center">

@@ -111,11 +111,11 @@ function FiadoPaymentModal({ sale, onClose, onConfirm }: FiadoPaymentModalProps)
                 {isLoading && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/90 z-10 rounded-2xl">
                         <Loader2 className="w-8 h-8 text-rose-500 animate-spin mb-3" />
-                        <p className="text-white font-medium">Processando pagamento...</p>
+                        <p className="text-slate-50 font-medium">Processando pagamento...</p>
                     </div>
                 )}
                 
-                <button className="absolute right-4 top-4 p-2 text-slate-400 hover:text-white transition disabled:opacity-50" onClick={onClose} disabled={isLoading}>
+                <button className="absolute right-4 top-4 p-2 text-slate-400 hover:text-slate-50 transition disabled:opacity-50" onClick={onClose} disabled={isLoading}>
                     <X className="w-6 h-6" />
                 </button>
 
@@ -123,12 +123,12 @@ function FiadoPaymentModal({ sale, onClose, onConfirm }: FiadoPaymentModalProps)
                     <div className="w-10 h-10 bg-red-600/10 rounded-full flex items-center justify-center border border-red-500/30">
                         <Wallet className="w-5 h-5 text-rose-400" />
                     </div>
-                    <h2 className="text-2xl font-bold text-white">Registrar Pagamento</h2>
+                    <h2 className="text-2xl font-bold text-slate-50">Registrar Pagamento</h2>
                 </div>
 
                 <div className="bg-slate-800/50 p-4 rounded-lg mb-6 border border-slate-700/50">
                     <p className="text-slate-400 mb-1 text-sm">
-                        Cliente: <span className="text-white font-medium">{sale.clientName}</span>
+                        Cliente: <span className="text-slate-50 font-medium">{sale.clientName}</span>
                     </p>
                     <p className="text-slate-400 text-sm flex items-center gap-2">
                         <Calendar className="w-3 h-3 text-slate-500" /> Vencimento:{" "}
@@ -293,7 +293,7 @@ export default function FiadoScreen({ onGoBack, fiadoSales, onRegisterPayment }:
                         <ArrowLeft className="w-6 h-6" />
                     </button>
                     <div>
-                        <h1 className="text-2xl font-extrabold text-white flex items-center gap-3 tracking-tight">
+                        <h1 className="text-2xl font-extrabold text-slate-50 flex items-center gap-3 tracking-tight">
                             Contas a Receber (Fiado)
                         </h1>
                         <p className="text-slate-400 text-sm mt-1">
@@ -323,7 +323,7 @@ export default function FiadoScreen({ onGoBack, fiadoSales, onRegisterPayment }:
                         placeholder="Buscar cliente, telefone ou ID..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-12 pr-4 py-3 bg-slate-900 border border-slate-800 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 transition"
+                        className="w-full pl-12 pr-4 py-3 bg-slate-900 border border-slate-800 rounded-lg text-slate-50 placeholder-slate-500 focus:outline-none focus:border-rose-500 transition"
                     />
                 </div>
                  {/* Botões de Filtro de Status */}
@@ -355,7 +355,7 @@ export default function FiadoScreen({ onGoBack, fiadoSales, onRegisterPayment }:
             {error && (
                 <div className="bg-red-900/50 border border-red-700 text-red-300 p-4 rounded-lg flex items-center justify-between">
                     <span>Erro: {error}</span>
-                    <button onClick={() => setError(null)} className="font-semibold hover:text-white transition">
+                    <button onClick={() => setError(null)} className="font-semibold hover:text-slate-50 transition">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
@@ -391,7 +391,7 @@ export default function FiadoScreen({ onGoBack, fiadoSales, onRegisterPayment }:
                                     >
                                         {/* Cliente */}
                                         <td className="px-6 py-4 align-middle">
-                                            <p className="text-white font-medium">{sale.clientName}</p>
+                                            <p className="text-slate-50 font-medium">{sale.clientName}</p>
                                             <div className="text-slate-400 text-sm flex items-center gap-1.5">
                                                 <Smartphone className="w-3 h-3 text-slate-500" /> {sale.clientPhone}
                                             </div>
@@ -464,7 +464,7 @@ export default function FiadoScreen({ onGoBack, fiadoSales, onRegisterPayment }:
                             <tr>
                                 <td colSpan={6} className="p-10 text-center text-slate-500">
                                     <CheckCircle className="w-10 h-10 text-emerald-500 mx-auto mb-3" />
-                                    <p className="text-white text-lg font-medium">
+                                    <p className="text-slate-50 text-lg font-medium">
                                         {statusFilter === "pending" 
                                             ? "Parabéns! Nenhuma dívida pendente encontrada." 
                                             : "Nenhuma venda concluída encontrada."}

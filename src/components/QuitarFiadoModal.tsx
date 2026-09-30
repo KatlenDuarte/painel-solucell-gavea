@@ -128,7 +128,7 @@ export default function QuitarFiadoModal({
                 <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
 
                     <div>
-                        <h2 className="text-lg font-black text-white">
+                        <h2 className="text-lg font-black text-slate-50">
                             Quitar Fiado
                         </h2>
 
@@ -139,7 +139,7 @@ export default function QuitarFiadoModal({
 
                     <button
                         onClick={onClose}
-                        className="text-slate-500 hover:text-white transition-colors"
+                        className="text-slate-500 hover:text-slate-50 transition-colors"
                     >
                         <X size={18} />
                     </button>
@@ -156,7 +156,7 @@ export default function QuitarFiadoModal({
                             Cliente
                         </p>
 
-                        <p className="text-white font-bold mt-1">
+                        <p className="text-slate-50 font-bold mt-1">
                             {clientName}
                         </p>
 
@@ -254,7 +254,7 @@ export default function QuitarFiadoModal({
                                     setPix(e.target.value)
                                 }
                                 placeholder="Valor PIX"
-                                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-white outline-none"
+                                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-slate-50 outline-none"
                             />
 
                             <input
@@ -265,7 +265,7 @@ export default function QuitarFiadoModal({
                                     setCartao(e.target.value)
                                 }
                                 placeholder="Valor Cartão"
-                                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-white outline-none"
+                                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-slate-50 outline-none"
                             />
 
                             <input
@@ -276,7 +276,7 @@ export default function QuitarFiadoModal({
                                     setDinheiro(e.target.value)
                                 }
                                 placeholder="Valor Dinheiro"
-                                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-white outline-none"
+                                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-slate-50 outline-none"
                             />
 
                             <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
@@ -287,7 +287,7 @@ export default function QuitarFiadoModal({
                                         Total informado
                                     </span>
 
-                                    <span className="text-white font-bold">
+                                    <span className="text-slate-50 font-bold">
                                         R$ {totalInformado.toFixed(2)}
                                     </span>
 

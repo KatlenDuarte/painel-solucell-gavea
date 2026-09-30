@@ -279,7 +279,7 @@ export default function EditSaleModal({ sale, isOpen, onClose, onSave }: EditSal
                         className={`px-5 py-2 text-xs font-medium rounded-xl transition-all ${
                             isMultipleError
                                 ? "bg-slate-800 text-slate-500 cursor-not-allowed"
-                                : "bg-slate-100 text-slate-950 hover:bg-white"
+                                : "bg-slate-100 text-slate-950 hover:bg-slate-50"
                         }`}
                     >
                         Salvar

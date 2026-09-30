@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 
 import {
-    fetchMaintenances,
+    subscribeMaintenances,
     deleteMaintenance as deleteMaintenanceService,
     updateMaintenance as updateMaintenanceService
 } from "../services/maintenanceService";
@@ -106,24 +106,26 @@ export default function MaintenancePage() {
     const [showPrintModal, setShowPrintModal] = useState(false);
     const [selectedOS, setSelectedOS] = useState<Maintenance | null>(null);
 
-    const loadMaintenances = useCallback(async () => {
+    // Listener em tempo real: antes a coleção inteira era relida a cada
+    // criação/edição/exclusão; agora só os documentos alterados chegam.
+    useEffect(() => {
         if (!storeEmail) return;
 
-        setLoading(true);
-
-        try {
-            const data = await fetchMaintenances(storeEmail);
-            setMaintenances(data as Maintenance[]);
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setLoading(false);
-        }
+        return subscribeMaintenances(
+            storeEmail,
+            (data) => {
+                setMaintenances(data as Maintenance[]);
+                setLoading(false);
+            },
+            (error) => {
+                console.error(error);
+                setLoading(false);
+            }
+        );
     }, [storeEmail]);
 
-    useEffect(() => {
-        loadMaintenances();
-    }, [loadMaintenances]);
+    // Mantido para os callbacks: o listener já reflete as alterações.
+    const loadMaintenances = useCallback(() => {}, []);
 
     const handlePrintOS = async (maintenance: Maintenance) => {
         try {
@@ -455,20 +457,20 @@ export default function MaintenancePage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#020617] flex items-center justify-center text-slate-400 text-xs font-semibold uppercase tracking-widest animate-pulse">
+            <div className="min-h-[60vh] flex items-center justify-center text-slate-400 text-xs font-semibold uppercase tracking-widest animate-pulse">
                 Carregando manutenções...
             </div>
         );
     }
 
     return (
-        <div className="p-4 md:p-8 bg-[#020617] min-h-screen space-y-6 text-slate-300">
+        <div className="p-4 md:p-8 space-y-6 text-slate-300">
 
             {/* HEADER */}
 
             <header className="flex flex-col lg:flex-row justify-between gap-5 border-b border-slate-900 pb-6">
                 <div>
-                    <h1 className="text-2xl font-black text-white uppercase tracking-tight">
+                    <h1 className="text-2xl font-black text-slate-50 uppercase tracking-tight">
                         Central de{" "}
                         <span className="text-blue-500">
                             Manutenções
@@ -513,7 +515,7 @@ export default function MaintenancePage() {
                                 setSearchTerm(e.target.value)
                             }
                             placeholder="Cliente, aparelho..."
-                            className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white outline-none focus:border-slate-700"
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-50 outline-none focus:border-slate-700"
                         />
                     </div>
                 </div>
@@ -530,7 +532,7 @@ export default function MaintenancePage() {
                         onChange={(e) =>
                             setStatusFilter(e.target.value)
                         }
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white outline-none"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-50 outline-none"
                     >
                         <option value="all">
                             Todos
@@ -561,7 +563,7 @@ export default function MaintenancePage() {
                         onChange={(e) =>
                             setPaymentFilter(e.target.value)
                         }
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white outline-none"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-50 outline-none"
                     >
                         <option value="all">
                             Todos
@@ -589,7 +591,7 @@ export default function MaintenancePage() {
                             setSelectedDay(e.target.value);
                             setPeriod("custom_day");
                         }}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white outline-none"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-50 outline-none"
                     />
                 </div>
             </section>
@@ -621,7 +623,7 @@ export default function MaintenancePage() {
                             setPeriod(item.value as any)
                         }
                         className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${period === item.value
-                            ? "bg-slate-800 text-white border-slate-700"
+                            ? "bg-slate-800 text-slate-50 border-slate-700"
                             : "bg-transparent text-slate-500 border-slate-900 hover:text-slate-300"
                             }`}
                     >
@@ -639,7 +641,7 @@ export default function MaintenancePage() {
                         Faturamento
                     </p>
 
-                    <h2 className="text-2xl font-bold text-white mt-2">
+                    <h2 className="text-2xl font-bold text-slate-50 mt-2">
                         R$ {metrics.total.toFixed(2)}
                     </h2>
                 </div>
@@ -765,7 +767,7 @@ export default function MaintenancePage() {
 
                                             <div className="flex flex-col">
 
-                                                <span className="text-xs text-white font-semibold">
+                                                <span className="text-xs text-slate-50 font-semibold">
                                                     {m.customer}
                                                 </span>
 
@@ -782,7 +784,7 @@ export default function MaintenancePage() {
 
                                             <div className="flex flex-col">
 
-                                                <span className="text-xs text-white font-semibold">
+                                                <span className="text-xs text-slate-50 font-semibold">
                                                     {m.device}
                                                 </span>
 
@@ -821,7 +823,7 @@ export default function MaintenancePage() {
 
                                             <button
                                                 onClick={toggleSort}
-                                                className="inline-flex items-center gap-1 text-white font-bold text-xs"
+                                                className="inline-flex items-center gap-1 text-slate-50 font-bold text-xs"
                                             >
                                                 R$ {m.value.toFixed(2)}
 

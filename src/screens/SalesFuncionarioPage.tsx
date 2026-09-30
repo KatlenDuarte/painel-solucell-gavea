@@ -1,5 +1,5 @@
 // src/screens/SalesFuncionarioPage.tsx
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useMemo } from "react";
 import {
     Plus,
     Search,
@@ -14,8 +14,7 @@ import {
     TrendingUp
 } from "lucide-react";
 
-import { collection, getDocs, query, where } from "firebase/firestore";
-import { db } from "../lib/firebase";
+import { useStoreData } from "../contexts/StoreDataContext";
 
 import NewSaleModal from "../components/NewSaleModal";
 
@@ -52,23 +51,13 @@ export default function SalesFuncionarioPage({ storeEmail }: Props) {
     const [searchTerm, setSearchTerm] = useState("");
     const [hideValues, setHideValues] = useState(false);
 
-    const [sales, setSales] = useState<SaleWithClient[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const { sales: salesDocs, salesLoading: isLoading } = useStoreData();
     const [isNewSaleModalOpen, setIsNewSaleModalOpen] = useState(false);
 
     // ================= FETCH =================
-    const fetchSales = useCallback(async () => {
-        setIsLoading(true);
-
-        try {
-            const q = query(
-                collection(db, "sales"),
-                where("store", "==", storeEmail)
-            );
-
-            const snapshot = await getDocs(q);
-
-            const list: SaleWithClient[] = snapshot.docs.map((doc) => {
+    // Vendas em tempo real pelo listener compartilhado (StoreDataContext).
+    const sales = useMemo<SaleWithClient[]>(() => {
+        const list: SaleWithClient[] = salesDocs.map((doc) => {
                 const data = doc.data();
                 const isFiadoQuitado =
                     data.paidAt &&
@@ -134,24 +123,13 @@ export default function SalesFuncionarioPage({ storeEmail }: Props) {
                             : undefined
                 };
             });
+        return list.sort(
+            (a, b) =>
+                (b.dateObject?.getTime() || 0) -
+                (a.dateObject?.getTime() || 0)
+        );
+    }, [salesDocs]);
 
-            setSales(
-                list.sort(
-                    (a, b) =>
-                        (b.dateObject?.getTime() || 0) -
-                        (a.dateObject?.getTime() || 0)
-                )
-            );
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setIsLoading(false);
-        }
-    }, [storeEmail]);
-
-    useEffect(() => {
-        fetchSales();
-    }, [fetchSales]);
 
     // ================= FILTROS =================
     const filteredByPeriod = sales.filter((sale) => {
@@ -254,15 +232,12 @@ export default function SalesFuncionarioPage({ storeEmail }: Props) {
     });
 
     return (
-        <div className="min-h-screen bg-[#020617] text-slate-300 p-4 md:p-8 font-sans antialiased">
+        <div className="text-slate-300 p-4 md:p-8 font-sans antialiased">
             {isNewSaleModalOpen && (
                 <NewSaleModal
                     storeEmail={storeEmail}
-                    onClose={() => {
-                        setIsNewSaleModalOpen(false);
-                        fetchSales();
-                    }}
-                    onSaleComplete={fetchSales}
+                    onClose={() => setIsNewSaleModalOpen(false)}
+                    onSaleComplete={() => {}}
                 />
             )}
 
@@ -280,7 +255,7 @@ export default function SalesFuncionarioPage({ storeEmail }: Props) {
                             </span>
                         </div>
 
-                        <h1 className="text-3xl md:text-4xl font-black italic text-white">
+                        <h1 className="text-3xl md:text-4xl font-black italic text-slate-50">
                             FLUXO DE{" "}
                             <span className="text-emerald-500">
                                 CAIXA
@@ -344,7 +319,7 @@ export default function SalesFuncionarioPage({ storeEmail }: Props) {
                                 </p>
                             </div>
 
-                            <p className="text-2xl font-black tracking-tight text-white">
+                            <p className="text-2xl font-black tracking-tight text-slate-50">
                                 {hideValues
                                     ? "••••••"
                                     : `R$ ${stats.pix.toLocaleString(
@@ -371,7 +346,7 @@ export default function SalesFuncionarioPage({ storeEmail }: Props) {
                                 </p>
                             </div>
 
-                            <p className="text-2xl font-black tracking-tight text-white">
+                            <p className="text-2xl font-black tracking-tight text-slate-50">
                                 {hideValues
                                     ? "••••••"
                                     : `R$ ${stats.cartao.toLocaleString(
@@ -398,7 +373,7 @@ export default function SalesFuncionarioPage({ storeEmail }: Props) {
                                 </p>
                             </div>
 
-                            <p className="text-2xl font-black tracking-tight text-white">
+                            <p className="text-2xl font-black tracking-tight text-slate-50">
                                 {hideValues
                                     ? "••••••"
                                     : `R$ ${stats.dinheiro.toLocaleString(
@@ -456,7 +431,7 @@ export default function SalesFuncionarioPage({ storeEmail }: Props) {
                                     key={f}
                                     onClick={() => setFilter(f)}
                                     className={`px-4 py-2.5 rounded-lg text-xs font-black transition-all ${filter === f
-                                        ? "bg-white text-slate-950"
+                                        ? "bg-slate-50 text-slate-950"
                                         : "text-slate-400 hover:text-slate-200"
                                         }`}
                                 >
@@ -483,7 +458,7 @@ export default function SalesFuncionarioPage({ storeEmail }: Props) {
                             onChange={(e) =>
                                 setSearchTerm(e.target.value)
                             }
-                            className="w-full bg-slate-900 border border-slate-800 rounded-xl py-3.5 pl-12 pr-4 text-sm text-white outline-none focus:border-emerald-500 transition-colors"
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl py-3.5 pl-12 pr-4 text-sm text-slate-50 outline-none focus:border-emerald-500 transition-colors"
                         />
                     </div>
                 </div>
@@ -513,7 +488,7 @@ export default function SalesFuncionarioPage({ storeEmail }: Props) {
                                             <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                                                 <div className="space-y-2">
                                                     <div className="flex flex-wrap gap-2 items-center">
-                                                        <h3 className="text-base font-bold tracking-tight text-white">
+                                                        <h3 className="text-base font-bold tracking-tight text-slate-50">
                                                             {sale.items.map(
                                                                 (
                                                                     item,
@@ -600,7 +575,7 @@ export default function SalesFuncionarioPage({ storeEmail }: Props) {
                                                             Valor Total
                                                         </p>
 
-                                                        <p className="text-xl font-bold tracking-tight text-white">
+                                                        <p className="text-xl font-bold tracking-tight text-slate-50">
                                                             {hideValues
                                                                 ? "•••••"
                                                                 : `R$ ${sale.total.toLocaleString(

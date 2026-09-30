@@ -202,7 +202,7 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                   Sistema Técnico
                 </span>
               </div>
-              <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight">
+              <h2 className="text-2xl md:text-3xl font-black text-slate-50 tracking-tight">
                 Adicionar Manutenção
               </h2>
               <p className="text-slate-500 text-sm mt-2 max-w-xl">
@@ -230,7 +230,7 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
               <User className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
-              <h3 className="text-sm font-black uppercase tracking-wide text-white">
+              <h3 className="text-sm font-black uppercase tracking-wide text-slate-50">
                 Cliente
               </h3>
               <p className="text-xs text-slate-500">
@@ -250,7 +250,7 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                 value={formData.customer}
                 onChange={handleChange}
                 placeholder="Ex: João Silva"
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-blue-500 transition-all"
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-slate-50 outline-none focus:border-blue-500 transition-all"
               />
             </div>
 
@@ -269,7 +269,7 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                   value={formData.phone}
                   onChange={handleChange}
                   placeholder="(31) 99999-9999"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-11 pr-4 py-3 text-sm text-white outline-none focus:border-blue-500 transition-all"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-11 pr-4 py-3 text-sm text-slate-50 outline-none focus:border-blue-500 transition-all"
                 />
               </div>
             </div>
@@ -283,7 +283,7 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
               <Smartphone className="w-5 h-5 text-blue-400" />
             </div>
             <div>
-              <h3 className="text-sm font-black uppercase tracking-wide text-white">
+              <h3 className="text-sm font-black uppercase tracking-wide text-slate-50">
                 Aparelho
               </h3>
               <p className="text-xs text-slate-500">
@@ -303,7 +303,7 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                 value={formData.device}
                 onChange={handleChange}
                 placeholder="Ex: iPhone 14"
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-blue-500 transition-all"
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-slate-50 outline-none focus:border-blue-500 transition-all"
               />
             </div>
 
@@ -315,7 +315,7 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                 name="brand"
                 value={formData.brand}
                 onChange={handleChange}
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-blue-500 transition-all"
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-slate-50 outline-none focus:border-blue-500 transition-all"
               >
                 <option value="">Selecionar</option>
                 {brands.map((brand) => (
@@ -336,7 +336,7 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                 value={formData.model}
                 onChange={handleChange}
                 placeholder="Ex: A54 5G"
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-blue-500 transition-all"
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-slate-50 outline-none focus:border-blue-500 transition-all"
               />
             </div>
           </div>
@@ -349,7 +349,7 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
               <AlertCircle className="w-5 h-5 text-amber-400" />
             </div>
             <div>
-              <h3 className="text-sm font-black uppercase tracking-wide text-white">
+              <h3 className="text-sm font-black uppercase tracking-wide text-slate-50">
                 Problema Reportado
               </h3>
               <p className="text-xs text-slate-500">
@@ -363,7 +363,7 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
             onChange={handleChange}
             rows={4}
             placeholder="Descreva o problema detalhadamente..."
-            className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-4 text-sm text-white outline-none resize-none focus:border-amber-500 transition-all"
+            className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-4 text-sm text-slate-50 outline-none resize-none focus:border-amber-500 transition-all"
           />
         </section>
 
@@ -374,7 +374,7 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
               <BadgeDollarSign className="w-5 h-5 text-purple-400" />
             </div>
             <div>
-              <h3 className="text-sm font-black uppercase tracking-wide text-white">
+              <h3 className="text-sm font-black uppercase tracking-wide text-slate-50">
                 Serviço & Pagamento
               </h3>
               <p className="text-xs text-slate-500">
@@ -392,7 +392,7 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                 name="status"
                 value={formData.status}
                 onChange={handleChange}
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-purple-500 transition-all"
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-slate-50 outline-none focus:border-purple-500 transition-all"
               >
                 {statusOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -419,7 +419,7 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                   value={formData.value}
                   onChange={handleChange}
                   placeholder="0.00"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-11 pr-4 py-3 text-sm text-white outline-none focus:border-purple-500 transition-all"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-11 pr-4 py-3 text-sm text-slate-50 outline-none focus:border-purple-500 transition-all"
                 />
               </div>
             </div>
@@ -461,7 +461,7 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
               <Calendar className="w-5 h-5 text-cyan-400" />
             </div>
             <div>
-              <h3 className="text-sm font-black uppercase tracking-wide text-white">
+              <h3 className="text-sm font-black uppercase tracking-wide text-slate-50">
                 Datas & Entrega
               </h3>
               <p className="text-xs text-slate-500">
@@ -480,7 +480,7 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                 name="orderDate"
                 value={formData.orderDate}
                 onChange={handleChange}
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-cyan-500 transition-all"
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-slate-50 outline-none focus:border-cyan-500 transition-all"
               />
             </div>
 
@@ -493,7 +493,7 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                 name="deliveryDate"
                 value={formData.deliveryDate}
                 onChange={handleChange}
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-cyan-500 transition-all"
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-slate-50 outline-none focus:border-cyan-500 transition-all"
               />
             </div>
           </div>
@@ -506,7 +506,7 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
               <ClipboardList className="w-5 h-5 text-slate-300" />
             </div>
             <div>
-              <h3 className="text-sm font-black uppercase tracking-wide text-white">
+              <h3 className="text-sm font-black uppercase tracking-wide text-slate-50">
                 Observações
               </h3>
               <p className="text-xs text-slate-500">
@@ -520,12 +520,12 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
             onChange={handleChange}
             rows={3}
             placeholder="Digite observações adicionais..."
-            className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-4 text-sm text-white outline-none resize-none focus:border-slate-600 transition-all"
+            className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-4 text-sm text-slate-50 outline-none resize-none focus:border-slate-600 transition-all"
           />
         </section>
 
         {/* ACTIONS */}
-        <div className="sticky bottom-0 bg-[#020617]/80 backdrop-blur-xl border border-slate-800 rounded-3xl p-4 flex flex-col md:flex-row gap-3">
+        <div className="sticky bottom-0 bg-slate-950/80 backdrop-blur-xl border border-slate-800 rounded-3xl p-4 flex flex-col md:flex-row gap-3">
           <button
             type="button"
             onClick={onClose}

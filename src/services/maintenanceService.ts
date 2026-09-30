@@ -7,6 +7,8 @@ import {
   updateDoc,
   query,
   where,
+  onSnapshot,
+  type DocumentData,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
 
@@ -63,6 +65,23 @@ export const fetchMaintenances = async (storeEmail: string) => {
   const q = query(maintenanceCollection, where("store", "==", storeEmail));
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+};
+
+// ---------------------------------------------
+// Escutar manutenções da loja em tempo real
+// (lê a coleção uma vez e depois só recebe o que mudou)
+// ---------------------------------------------
+export const subscribeMaintenances = (
+  storeEmail: string,
+  onData: (data: Array<{ id: string } & DocumentData>) => void,
+  onError?: (error: unknown) => void
+) => {
+  const q = query(maintenanceCollection, where("store", "==", storeEmail));
+  return onSnapshot(
+    q,
+    (snap) => onData(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    onError
+  );
 };
 
 // ---------------------------------------------

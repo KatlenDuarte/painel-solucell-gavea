@@ -49,7 +49,7 @@ const RefundConfirmationModal: React.FC<RefundConfirmationModalProps> = ({
             <div className="bg-slate-900 border border-red-700 rounded-xl w-full max-w-sm p-6 shadow-2xl relative">
                 <button
                     onClick={onClose}
-                    className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors p-1"
+                    className="absolute top-4 right-4 text-slate-400 hover:text-slate-50 transition-colors p-1"
                     title="Fechar"
                     disabled={loading}
                 >
@@ -58,7 +58,7 @@ const RefundConfirmationModal: React.FC<RefundConfirmationModalProps> = ({
 
                 <div className="text-center">
                     <Undo2 className="w-10 h-10 text-red-500 mx-auto mb-4" />
-                    <h2 className="text-xl font-bold text-white mb-2">Confirmar Reembolso</h2>
+                    <h2 className="text-xl font-bold text-slate-50 mb-2">Confirmar Reembolso</h2>
                     <p className="text-slate-400 mb-6 text-sm">
                         Tem certeza que deseja reembolsar a transação <strong>{saleId}</strong>? O estoque dos itens vendidos será **restaurado**.
                     </p>
@@ -67,7 +67,7 @@ const RefundConfirmationModal: React.FC<RefundConfirmationModalProps> = ({
                 <div className="flex justify-between gap-3">
                     <button
                         onClick={onClose}
-                        className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors font-medium"
+                        className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-50 rounded-lg transition-colors font-medium"
                         disabled={loading}
                     >
                         Cancelar

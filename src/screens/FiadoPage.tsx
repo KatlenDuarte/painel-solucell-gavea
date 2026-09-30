@@ -1,6 +1,6 @@
 // src/screens/FiadoPage.tsx
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import {
     Search,
     User,
@@ -19,10 +19,6 @@ import {
 } from "lucide-react";
 
 import {
-    collection,
-    getDocs,
-    query,
-    where,
     updateDoc,
     doc,
     serverTimestamp
@@ -30,6 +26,7 @@ import {
 import QuitarFiadoModal from "../components/QuitarFiadoModal";
 
 import { db } from "../lib/firebase";
+import { useStoreData } from "../contexts/StoreDataContext";
 
 interface FiadoSale {
     id: string;
@@ -44,15 +41,10 @@ interface FiadoSale {
     timestamp?: any;
 }
 
-export default function FiadoPage({
-    storeEmail
-}: {
-    storeEmail: string;
-}) {
+export default function FiadoPage() {
 
-    const [fiados, setFiados] = useState<FiadoSale[]>([]);
+    const { sales: salesDocs, salesLoading: loading } = useStoreData();
     const [editingNote, setEditingNote] = useState<Record<string, string>>({});
-    const [loading, setLoading] = useState(true);
 
     const [searchTerm, setSearchTerm] = useState("");
 
@@ -67,32 +59,20 @@ export default function FiadoPage({
     const [selectedMonth, setSelectedMonth] =
         useState<string>("all");
 
-    const fetchFiados = useCallback(async () => {
-
-        if (!storeEmail) return;
-
-        setLoading(true);
-
-        try {
-
+    // Fiados derivados das vendas em tempo real (StoreDataContext): trocar de aba
+    // ou quitar/cancelar um fiado não gera nova leitura da coleção.
+    const fiados = useMemo<FiadoSale[]>(() => {
             const statusFilter =
                 activeTab === "pendentes"
                     ? "pending"
                     : "fiado_quitado";
 
-            const q = query(
-                collection(db, "sales"),
-                where("store", "==", storeEmail),
-                where("status", "==", statusFilter)
-            );
-
-            const snapshot = await getDocs(q);
-
             const list: FiadoSale[] = [];
 
-            snapshot.docs.forEach((docSnap) => {
+            salesDocs.forEach((docSnap) => {
 
                 const data = docSnap.data();
+                if (data.status !== statusFilter) return;
 
                 const isFiado =
                     data.paymentMethod === "Fiado" ||
@@ -161,23 +141,12 @@ export default function FiadoPage({
                     (a.timestamp?.toMillis?.() || 0)
             );
 
-            setFiados(list);
+            return list;
+    }, [salesDocs, activeTab]);
 
-        } catch (error) {
+    // Mantido para os callbacks: o listener já reflete as alterações.
+    const fetchFiados = useCallback(() => {}, []);
 
-            console.error(error);
-
-        } finally {
-
-            setLoading(false);
-
-        }
-
-    }, [storeEmail, activeTab]);
-
-    useEffect(() => {
-        fetchFiados();
-    }, [fetchFiados]);
 
     const filteredFiados = fiados.filter((f) => {
 
@@ -286,7 +255,7 @@ export default function FiadoPage({
     };
 
     return (
-        <div className="min-h-screen bg-[#020617] text-slate-300 p-4 md:p-8 font-sans antialiased">
+        <div className="text-slate-300 p-4 md:p-8 font-sans antialiased">
 
             {showQuitarModal && selectedFiado && (
                 <QuitarFiadoModal
@@ -310,7 +279,7 @@ export default function FiadoPage({
                 <header className="flex flex-col lg:flex-row justify-between lg:items-end gap-6 border-b border-slate-800 pb-6">
 
                     <div>
-                        <h1 className="text-3xl md:text-4xl font-black italic text-white">
+                        <h1 className="text-3xl md:text-4xl font-black italic text-slate-50">
                             SOLUCELL
                             <span className="text-blue-600">.</span>
                         </h1>
@@ -351,7 +320,7 @@ export default function FiadoPage({
                             Quantidade
                         </p>
 
-                        <p className="text-2xl font-black text-white">
+                        <p className="text-2xl font-black text-slate-50">
                             {filteredFiados.length}
                         </p>
                     </div>
@@ -380,7 +349,7 @@ export default function FiadoPage({
                             Histórico Pago
                         </p>
 
-                        <p className="text-2xl font-black text-white">
+                        <p className="text-2xl font-black text-slate-50">
                             {
                                 fiados.filter(
                                     f => f.status === "completed"
@@ -408,7 +377,7 @@ export default function FiadoPage({
                             onChange={(e) =>
                                 setSearchTerm(e.target.value)
                             }
-                            className="w-full bg-slate-900 border border-slate-800 rounded-xl py-4 pl-12 pr-4 text-sm text-white outline-none focus:border-cyan-500"
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl py-4 pl-12 pr-4 text-sm text-slate-50 outline-none focus:border-cyan-500"
                         />
                     </div>
 
@@ -419,7 +388,7 @@ export default function FiadoPage({
                                 setActiveTab("pendentes")
                             }
                             className={`px-6 py-3 rounded-xl text-xs font-black transition-all ${activeTab === "pendentes"
-                                ? "bg-white text-slate-950"
+                                ? "bg-slate-50 text-slate-950"
                                 : "text-slate-400"
                                 }`}
                         >
@@ -431,7 +400,7 @@ export default function FiadoPage({
                                 setActiveTab("historico")
                             }
                             className={`px-6 py-3 rounded-xl text-xs font-black transition-all ${activeTab === "historico"
-                                ? "bg-white text-slate-950"
+                                ? "bg-slate-50 text-slate-950"
                                 : "text-slate-400"
                                 }`}
                         >
@@ -527,7 +496,7 @@ export default function FiadoPage({
 
                                                 <div>
 
-                                                    <h3 className="text-base font-bold text-white tracking-tight">
+                                                    <h3 className="text-base font-bold text-slate-50 tracking-tight">
                                                         {sale.clientName}
                                                     </h3>
 
@@ -555,7 +524,7 @@ export default function FiadoPage({
                                                     Total Devido
                                                 </p>
 
-                                                <p className="text-xl font-bold text-white font-mono">
+                                                <p className="text-xl font-bold text-slate-50 font-mono">
                                                     R$ {sale.total.toFixed(2)}
                                                 </p>
 

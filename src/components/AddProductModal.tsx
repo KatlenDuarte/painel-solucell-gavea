@@ -249,7 +249,7 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, storeEmail 
               required
               value={formData.name}
               onChange={handleChange}
-              className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+              className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-50 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
               placeholder="Ex: Película iPhone 14 Pro"
             />
           </div>
@@ -266,7 +266,7 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, storeEmail 
                 name="barcode"
                 value={formData.barcode}
                 onChange={handleChange}
-                className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-50 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                 placeholder="Bipe, digite ou gere um código..."
               />
             </div>
@@ -309,7 +309,7 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, storeEmail 
               name="category"
               value={formData.category}
               onChange={handleChange}
-              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-emerald-500"
+              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-50 focus:outline-none focus:border-emerald-500"
             >
               {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
@@ -326,7 +326,7 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, storeEmail 
                   name="brand"
                   value={formData.brand}
                   onChange={handleChange}
-                  className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-emerald-500"
+                  className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-50 focus:outline-none focus:border-emerald-500"
                 >
                   <option value="">Selecione a marca</option>
                   {defaultBrands.map(b => <option key={b} value={b}>{b}</option>)}
@@ -340,7 +340,7 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, storeEmail 
                     required
                     value={formData.customBrand}
                     onChange={handleChange}
-                    className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-emerald-500/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                    className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-emerald-500/50 rounded-lg text-slate-50 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                     placeholder="Digite a nova marca..."
                   />
                   <button 
@@ -367,7 +367,7 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, storeEmail 
               required={isModelRequired()}
               value={formData.model}
               onChange={handleChange}
-              className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+              className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-50 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
               placeholder={getModelPlaceholder()}
             />
           </div>
@@ -383,7 +383,7 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, storeEmail 
               name="provider"
               value={formData.provider}
               onChange={handleChange}
-              className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+              className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-50 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
               placeholder="Ex: Distribuidora Sol, Importadora XYZ"
             />
           </div>
@@ -400,7 +400,7 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, storeEmail 
               min="0"
               value={formData.stock}
               onChange={handleChange}
-              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-emerald-500"
+              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-50 focus:outline-none focus:border-emerald-500"
             />
           </div>
           <div>
@@ -412,7 +412,7 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, storeEmail 
               min="0"
               value={formData.minStock}
               onChange={handleChange}
-              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-emerald-500"
+              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-50 focus:outline-none focus:border-emerald-500"
             />
           </div>
         </div>
@@ -428,7 +428,7 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, storeEmail 
               step="0.01"
               value={formData.costPrice}
               onChange={handleChange}
-              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-emerald-500"
+              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-50 focus:outline-none focus:border-emerald-500"
               placeholder="0.00"
             />
           </div>
@@ -442,7 +442,7 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, storeEmail 
               step="0.01"
               value={formData.price}
               onChange={handleChange}
-              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-emerald-500"
+              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-50 focus:outline-none focus:border-emerald-500"
               placeholder="0.00"
             />
           </div>
@@ -450,7 +450,7 @@ export default function AddProductModal({ isOpen, onClose, onSubmit, storeEmail 
 
         {/* Botões do Formulário */}
         <div className="flex items-center gap-4 pt-4 border-t border-slate-800">
-          <button type="button" onClick={onClose} className="flex-1 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors">Cancelar</button>
+          <button type="button" onClick={onClose} className="flex-1 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-50 rounded-lg transition-colors">Cancelar</button>
           <button type="submit" className="flex-1 px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold transition-colors">Adicionar Produto</button>
         </div>
       </form>

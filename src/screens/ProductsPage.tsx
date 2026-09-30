@@ -8,8 +8,8 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import bwipjs from "bwip-js"; // 🌟 Biblioteca para gerar o desenho do código de barras real no PDF
 
-import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { fetchProducts, deleteProduct, updateProduct } from "../services/productsService";
+import { useStoreData } from "../contexts/StoreDataContext";
+import { deleteProduct, updateProduct } from "../services/productsService";
 
 import AddProductModal from "../components/AddProductModal";
 import EditStockModal from "../components/EditStockModal";
@@ -44,11 +44,7 @@ type SortField = "name" | "stock" | "price";
 type SortDirection = "asc" | "desc";
 
 export default function ProductsContent() {
-    const auth = getAuth();
-
-    const [effectiveStoreEmail, setEffectiveStoreEmail] = useState<string>("");
-    const [products, setProducts] = useState<Product[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { storeEmail: effectiveStoreEmail, products: productDocs, productsLoading: loading } = useStoreData();
 
     const [selectedCategory, setSelectedCategory] = useState("all");
     const [searchTerm, setSearchTerm] = useState("");
@@ -76,56 +72,31 @@ export default function ProductsContent() {
     const barcodeBuffer = useRef<string>("");
     const lastKeyTime = useRef<number>(0);
 
-    const STORE_MAPPING: Record<string, string> = {
-        "kluivert@solucell.com": "kluivert@solucell.com",
-        "funcionarios@solucell.com": "kluivert@solucell.com",
-    };
-
     const determineStatus = (stock: number, minStock: number) => {
         if (stock <= 0) return "critical";
         if (stock <= minStock) return "low";
         return "ok";
     };
 
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            if (user) {
-                const realStore = STORE_MAPPING[user.email!] || user.email!;
-                setEffectiveStoreEmail(realStore);
-            }
-        });
-        return () => unsubscribe();
-    }, [auth]);
+    // Produtos chegam em tempo real pelo listener compartilhado (StoreDataContext),
+    // sem reler a coleção inteira a cada visita ou alteração.
+    const products = useMemo<Product[]>(() => productDocs.map((docSnap) => {
+        const p: any = { id: docSnap.id, ...docSnap.data() };
+        const stock = Number(p.stock || 0);
+        const minStock = Number(p.minStock || 5);
+        return {
+            ...p,
+            stock,
+            minStock,
+            price: Number(p.price || 0),
+            costPrice: p.costPrice !== undefined ? p.costPrice : null,
+            barcode: p.barcode || null,
+            status: determineStatus(stock, minStock)
+        };
+    }), [productDocs]);
 
-    const loadProducts = useCallback(async () => {
-        if (!effectiveStoreEmail) return;
-        setLoading(true);
-        try {
-            const data = await fetchProducts(effectiveStoreEmail);
-            const formatted = data.map((p: any) => {
-                const stock = Number(p.stock || 0);
-                const minStock = Number(p.minStock || 5);
-                return {
-                    ...p,
-                    stock,
-                    minStock,
-                    price: Number(p.price || 0),
-                    costPrice: p.costPrice !== undefined ? p.costPrice : null,
-                    barcode: p.barcode || null,
-                    status: determineStatus(stock, minStock)
-                };
-            });
-            setProducts(formatted);
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
-    }, [effectiveStoreEmail]);
-
-    useEffect(() => {
-        if (effectiveStoreEmail) loadProducts();
-    }, [effectiveStoreEmail, loadProducts]);
+    // Mantido para os callbacks dos modais: o listener já reflete as alterações.
+    const loadProducts = useCallback(async () => {}, []);
 
     // 🌟 ADICIONAR PRODUTO À FILA DE ETIQUETAS (ATUALIZADO PARA SUPORTAR EDIÇÃO)
     const handleAddToLabelQueue = async (
@@ -176,8 +147,6 @@ export default function ProductsContent() {
                     )
                 };
 
-                // Atualiza a lista local da tabela em background para refletir a mudança visual
-                setProducts(prev => prev.map(p => p.id === product.id ? targetProduct : p));
             } catch (err) {
                 console.error("Erro ao atualizar produto antes da impressão:", err);
                 alert("Erro ao salvar novos dados do produto, mas prosseguindo com a etiqueta antiga.");
@@ -386,16 +355,8 @@ export default function ProductsContent() {
                 name: newName, price: newPrice, stock: newStock, minStock: newMinStock, costPrice: newCostPrice, barcode: newBarcode,
             });
 
-            setProducts(prevProducts =>
-                prevProducts.map(p =>
-                    p.id === productId
-                        ? { ...p, name: newName, price: newPrice, stock: newStock, minStock: newMinStock, costPrice: newCostPrice, barcode: newBarcode, status: determineStatus(newStock, newMinStock) }
-                        : p
-                )
-            );
             setIsEditStockModalOpen(false);
             setSelectedProduct(null);
-            await loadProducts();
         } catch (err) {
             console.error(err);
             alert("Erro ao salvar alterações.");
@@ -406,7 +367,6 @@ export default function ProductsContent() {
         if (!window.confirm(`Tem certeza que deseja excluir ${name}?`)) return;
         try {
             await deleteProduct(id);
-            setProducts(prev => prev.filter(p => p.id !== id));
         } catch (err) {
             console.error(err);
         }
@@ -454,7 +414,7 @@ export default function ProductsContent() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-slate-950 flex flex-col gap-3 items-center justify-center text-slate-400 font-sans">
+            <div className="min-h-[60vh] flex flex-col gap-3 items-center justify-center text-slate-400 font-sans">
                 <div className="h-7 w-7 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
                 <span className="text-xs uppercase font-bold tracking-widest text-slate-500">Buscando Inventário...</span>
             </div>
@@ -462,12 +422,12 @@ export default function ProductsContent() {
     }
 
     return (
-        <div className="min-h-screen bg-[#020617] text-slate-200 p-4 sm:p-6 md:p-10 space-y-6 md:space-y-8 font-sans antialiased">
+        <div className="text-slate-200 p-4 sm:p-6 md:p-10 space-y-6 md:space-y-8 font-sans antialiased">
 
             {/* Topo / Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-900 pb-4">
                 <div>
-                    <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">INVENTÁRIO<span className="text-emerald-500">.</span></h1>
+                    <h1 className="text-2xl sm:text-3xl font-black text-slate-50 tracking-tight">INVENTÁRIO<span className="text-emerald-500">.</span></h1>
                     <p className="text-slate-500 text-xs sm:text-sm flex items-center gap-1.5">
                         <Scan size={14} className="text-emerald-500 animate-pulse" /> Scanner ativo: ao bipar, o item entra na fila de impressão.
                     </p>
@@ -496,21 +456,21 @@ export default function ProductsContent() {
                     <div className="p-3 bg-blue-500/10 text-blue-400 rounded-xl border border-blue-500/20"><Layers size={20} /></div>
                     <div>
                         <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Volume de Itens</p>
-                        <h4 className="text-xl font-black text-white">{inventoryStats.totalItems} un</h4>
+                        <h4 className="text-xl font-black text-slate-50">{inventoryStats.totalItems} un</h4>
                     </div>
                 </div>
                 <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 flex items-center gap-4">
                     <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20"><DollarSign size={20} /></div>
                     <div>
                         <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Custo de Estoque</p>
-                        <h4 className="text-xl font-black text-white">R$ {inventoryStats.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4>
+                        <h4 className="text-xl font-black text-slate-50">R$ {inventoryStats.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4>
                     </div>
                 </div>
                 <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 flex items-center gap-4">
                     <div className="p-3 bg-red-500/10 text-red-400 rounded-xl border border-red-500/20"><AlertCircle size={20} /></div>
                     <div>
                         <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Produtos Instáveis</p>
-                        <h4 className="text-xl font-black text-white">{inventoryStats.criticalAlerts} pendentes</h4>
+                        <h4 className="text-xl font-black text-slate-50">{inventoryStats.criticalAlerts} pendentes</h4>
                     </div>
                 </div>
             </div>
@@ -525,7 +485,7 @@ export default function ProductsContent() {
                             placeholder="Buscar por nome, marca, modelo ou código..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-11 pr-4 py-2.5 text-xs font-medium focus:border-emerald-500 outline-none placeholder-slate-600 text-white transition-colors"
+                            className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-11 pr-4 py-2.5 text-xs font-medium focus:border-emerald-500 outline-none placeholder-slate-600 text-slate-50 transition-colors"
                         />
                     </div>
                     <button
@@ -571,7 +531,7 @@ export default function ProductsContent() {
                             <div key={p.id} className="bg-slate-900/40 border border-slate-800 rounded-xl p-4 space-y-3">
                                 <div className="flex justify-between items-start gap-2">
                                     <div>
-                                        <h4 className="font-bold text-white text-sm leading-tight">{p.name}</h4>
+                                        <h4 className="font-bold text-slate-50 text-sm leading-tight">{p.name}</h4>
                                         <p className="text-slate-500 text-[11px] mt-0.5">{p.brand} • {p.model}</p>
                                     </div>
                                     <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase shrink-0 ${p.status === 'critical' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
@@ -616,7 +576,7 @@ export default function ProductsContent() {
                     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
                         <div className="bg-slate-900 p-6 rounded-xl w-[320px] space-y-4 border border-slate-700">
 
-                            <h2 className="text-white font-bold text-sm">
+                            <h2 className="text-slate-50 font-bold text-sm">
                                 Configurar Impressão
                             </h2>
 
@@ -630,7 +590,7 @@ export default function ProductsContent() {
                                 max={48}
                                 value={startPosition}
                                 onChange={(e) => setStartPosition(Number(e.target.value))}
-                                className="w-full px-3 py-2 rounded bg-slate-800 text-white text-sm"
+                                className="w-full px-3 py-2 rounded bg-slate-800 text-slate-50 text-sm"
                             />
 
                             <div className="flex gap-2 justify-end">
@@ -676,7 +636,7 @@ export default function ProductsContent() {
                             ) : (
                                 filteredProducts.map((p) => (
                                     <tr key={p.id} className="hover:bg-slate-900/50 transition-colors group">
-                                        <td className="px-6 py-4 font-bold text-white text-sm">{p.name}</td>
+                                        <td className="px-6 py-4 font-bold text-slate-50 text-sm">{p.name}</td>
                                         <td className="px-6 py-4 text-slate-400 text-xs font-medium">{p.brand} <span className="text-slate-600">•</span> {p.model}</td>
                                         <td className="px-6 py-4 text-center text-slate-400 text-sm font-semibold">{p.minStock}</td>
                                         <td className="px-6 py-4 text-center">

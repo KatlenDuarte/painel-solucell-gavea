@@ -276,15 +276,15 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
         }
     };
 
-    if (isLoading) return <div className="min-h-screen bg-[#020617] flex items-center justify-center"><Loader2 className="animate-spin text-blue-500" size={50} /></div>;
+    if (isLoading) return <div className="min-h-[60vh] flex items-center justify-center"><Loader2 className="animate-spin text-blue-500" size={50} /></div>;
 
     if (!isCashOpen) {
         return (
-            <div className="min-h-screen bg-[#020617] text-slate-200 p-4 md:p-8">
+            <div className="text-slate-200 p-4 md:p-8">
                 <div className="max-w-5xl mx-auto space-y-6">
                     <header className="flex justify-between items-end border-b border-slate-800 pb-6">
                         <div>
-                            <h1 className="text-3xl font-black text-white italic">SOLUCELL<span className="text-blue-600">.</span></h1>
+                            <h1 className="text-3xl font-black text-slate-50 italic">SOLUCELL<span className="text-blue-600">.</span></h1>
                             <p className="text-rose-500 text-[10px] font-black uppercase tracking-widest">Caixa Fechado</p>
                         </div>
                         <div className="text-right text-[10px] font-bold text-slate-500 uppercase">Aguardando Operador</div>
@@ -294,7 +294,7 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
                         {/* Painel do Fundo Inicial / Abertura */}
                         <div className="bg-slate-900/30 border border-slate-800 rounded-3xl p-6 flex flex-col justify-between">
                             <div>
-                                <h3 className="text-white font-black text-[10px] uppercase mb-4 tracking-widest">Abertura de Turno</h3>
+                                <h3 className="text-slate-50 font-black text-[10px] uppercase mb-4 tracking-widest">Abertura de Turno</h3>
                                 <p className="text-xs text-slate-400 mb-6">Informe o montante em dinheiro separado para troco e fundo de gaveta.</p>
 
                                 <div className="space-y-2 mb-4">
@@ -302,7 +302,7 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
                                     <input
                                         type="text"
                                         placeholder="R$ 0,00"
-                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-xl font-black text-white outline-none focus:border-blue-600 transition-all"
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-xl font-black text-slate-50 outline-none focus:border-blue-600 transition-all"
                                         value={tempInitialBalance}
                                         onChange={e => setTempInitialBalance(e.target.value)}
                                     />
@@ -319,7 +319,7 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
                             <div className="absolute top-6 right-6 text-slate-800"><Wallet size={24} /></div>
 
                             <div>
-                                <h3 className="text-white font-black text-[10px] uppercase mb-4 tracking-widest">Confirmação</h3>
+                                <h3 className="text-slate-50 font-black text-[10px] uppercase mb-4 tracking-widest">Confirmação</h3>
                                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full text-[9px] font-black text-amber-400 uppercase tracking-wider mb-2">
                                     ● Aguardando Início
                                 </div>
@@ -359,11 +359,11 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
     }
 
     return (
-        <div className="min-h-screen bg-[#020617] text-slate-200 p-4 md:p-8 relative">
+        <div className="text-slate-200 p-4 md:p-8 relative">
             <div className="max-w-5xl mx-auto space-y-6">
                 <header className="flex justify-between items-end border-b border-slate-800 pb-6">
                     <div>
-                        <h1 className="text-3xl font-black text-white italic">SOLUCELL<span className="text-blue-600">.</span></h1>
+                        <h1 className="text-3xl font-black text-slate-50 italic">SOLUCELL<span className="text-blue-600">.</span></h1>
                         <p className="text-emerald-500 text-[10px] font-black uppercase tracking-widest">Caixa em Operação</p>
                     </div>
                     <div className="text-right text-[10px] font-bold text-slate-500 uppercase">Abertura: {cashOpenedAt}</div>
@@ -388,17 +388,17 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
                     </div>
                     <div className="bg-blue-600/10 p-4 rounded-2xl border border-blue-500/20 col-span-2 lg:col-span-1">
                         <p className="text-blue-400 text-[9px] font-black uppercase mb-1">Pix + Cartão</p>
-                        <p className="text-white font-black text-lg">R$ {(summary.pix + summary.cartao).toFixed(2)}</p>
+                        <p className="text-slate-50 font-black text-lg">R$ {(summary.pix + summary.cartao).toFixed(2)}</p>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="bg-slate-900/30 border border-slate-800 rounded-3xl p-6">
-                        <h3 className="text-white font-black text-[10px] uppercase mb-4 tracking-widest">Movimentação Manual</h3>
+                        <h3 className="text-slate-50 font-black text-[10px] uppercase mb-4 tracking-widest">Movimentação Manual</h3>
                         <div className="flex flex-col gap-2 mb-6">
                             <div className="flex gap-2">
-                                <input placeholder="Descrição" value={newDesc} onChange={e => setNewDesc(e.target.value)} className="flex-1 bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white outline-none" />
-                                <input placeholder="Valor" value={newAmount} onChange={e => setNewAmount(e.target.value)} className="w-24 bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white outline-none" />
+                                <input placeholder="Descrição" value={newDesc} onChange={e => setNewDesc(e.target.value)} className="flex-1 bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-50 outline-none" />
+                                <input placeholder="Valor" value={newAmount} onChange={e => setNewAmount(e.target.value)} className="w-24 bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-50 outline-none" />
                             </div>
                             <div className="grid grid-cols-2 gap-2">
                                 <button onClick={() => handleAddMovement('in')} className="bg-emerald-600 p-3 rounded-xl font-bold text-[10px] flex items-center justify-center gap-2 transition-all"><ArrowUpCircle size={14} /> ENTRADA</button>
@@ -424,7 +424,7 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
                     <div className="bg-slate-900 border-2 border-slate-800 rounded-[2.5rem] p-8 text-center flex flex-col justify-center relative">
                         <div className="absolute top-4 right-6 text-slate-700"><Landmark size={40} /></div>
                         <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-2">Total Esperado em Dinheiro</p>
-                        <p className="text-5xl font-black text-white italic mb-4">R$ {saldoFinalGaveta.toFixed(2)}</p>
+                        <p className="text-5xl font-black text-slate-50 italic mb-4">R$ {saldoFinalGaveta.toFixed(2)}</p>
                         <div className="flex items-center justify-center gap-2 text-emerald-500 font-black text-[10px] uppercase tracking-widest">
                             <CheckCircle2 size={14} /> Sistema atualizado
                         </div>
@@ -441,7 +441,7 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
                                 {soldItems.map((item, i) => (
                                     <tr key={`item-${i}`} className="text-xs hover:bg-slate-800/20">
                                         <td className="px-6 py-4 font-bold text-slate-300">{item.name}</td>
-                                        <td className="px-6 py-4 text-right font-black text-white">{item.qty} un</td>
+                                        <td className="px-6 py-4 text-right font-black text-slate-50">{item.qty} un</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -472,14 +472,14 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
                                 setIsClosingModalOpen(false);
                                 setPhysicalCashInput("");
                             }}
-                            className="absolute top-6 right-6 text-slate-400 hover:text-white transition-all"
+                            className="absolute top-6 right-6 text-slate-400 hover:text-slate-50 transition-all"
                         >
                             <X size={20} />
                         </button>
 
                         <div className="text-center mb-6">
                             <Landmark className="mx-auto text-blue-500 mb-3" size={40} />
-                            <h3 className="text-xl font-black text-white uppercase italic tracking-wide">Conferência de Caixa</h3>
+                            <h3 className="text-xl font-black text-slate-50 uppercase italic tracking-wide">Conferência de Caixa</h3>
                             <p className="text-xs text-slate-400 mt-1">Insira o montante total em dinheiro físico presente na gaveta</p>
                         </div>
 
@@ -495,7 +495,7 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
                                 placeholder="R$ 0,00"
                                 value={physicalCashInput}
                                 onChange={e => setPhysicalCashInput(e.target.value)}
-                                className="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl p-4 text-2xl font-black text-white text-center focus:border-blue-600 outline-none transition-all"
+                                className="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl p-4 text-2xl font-black text-slate-50 text-center focus:border-blue-600 outline-none transition-all"
                                 autoFocus
                             />
                         </div>

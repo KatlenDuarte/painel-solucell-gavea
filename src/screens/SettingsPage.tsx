@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { auth } from "../lib/firebase";
-import { Lock, UserCheck, Key, AlertTriangle, CheckCircle, X, Settings } from "lucide-react";
+import { Lock, UserCheck, Key, AlertTriangle, CheckCircle, X, Settings, Palette, Sun, Moon } from "lucide-react";
+import { useTheme } from "../contexts/ThemeContext";
 
 // Tipagem
 export type TargetSetting = "security_pin" | "store_password";
@@ -17,6 +18,7 @@ interface SettingsPageProps {
 
 // Receba as props
 export default function SettingsPage({ currentPin, onPinChange }: SettingsPageProps) {
+    const { theme, setTheme } = useTheme();
     // Inicialize o PIN do estado local com o PIN atual (ou fallback seguro "0000")
     const [securityPin, setSecurityPin] = useState<string>(currentPin || "0000");
     const [newPassword, setNewPassword] = useState("");
@@ -201,7 +203,7 @@ export default function SettingsPage({ currentPin, onPinChange }: SettingsPagePr
 
                     <button
                         onClick={cancelVerification}
-                        className="px-4 py-3 bg-slate-300 dark:bg-slate-700 rounded-lg text-slate-800 dark:text-white transition-colors"
+                        className="px-4 py-3 bg-slate-700 rounded-lg text-slate-50 transition-colors"
                     >
                         Cancelar
                     </button>
@@ -227,9 +229,7 @@ export default function SettingsPage({ currentPin, onPinChange }: SettingsPagePr
                             type="password"
                             value={securityPin}
                             onChange={(e) => setSecurityPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                            className={`w-full px-4 py-3 rounded-lg text-center text-3xl tracking-[0.6em]
-                outline-none transition-all duration-300 bg-slate-800/60 text-white 
-                border ${securityPin.length === 4 ? "border-emerald-500" : "border-slate-700"}`}
+                            className={`w-full px-4 py-3 rounded-lg text-center text-3xl tracking-[0.6em] outline-none transition-all duration-300 bg-slate-800/60 text-slate-50 border ${securityPin.length === 4 ? "border-emerald-500" : "border-slate-700"}`}
                             maxLength={4}
                             placeholder="••••"
                         />
@@ -245,7 +245,7 @@ export default function SettingsPage({ currentPin, onPinChange }: SettingsPagePr
                                 type="password"
                                 value={currentPassword}
                                 onChange={(e) => setCurrentPassword(e.target.value)}
-                                className="w-full px-4 py-3 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-700 focus:border-emerald-500"
+                                className="w-full px-4 py-3 bg-slate-800 rounded-lg border border-slate-700 focus:border-emerald-500"
                             />
                         </div>
 
@@ -255,7 +255,7 @@ export default function SettingsPage({ currentPin, onPinChange }: SettingsPagePr
                                 type="password"
                                 value={newPassword}
                                 onChange={(e) => setNewPassword(e.target.value)}
-                                className="w-full px-4 py-3 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-700 focus:border-emerald-500"
+                                className="w-full px-4 py-3 bg-slate-800 rounded-lg border border-slate-700 focus:border-emerald-500"
                             />
                         </div>
 
@@ -265,7 +265,7 @@ export default function SettingsPage({ currentPin, onPinChange }: SettingsPagePr
                                 type="password"
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
-                                className="w-full px-4 py-3 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-700 focus:border-emerald-500"
+                                className="w-full px-4 py-3 bg-slate-800 rounded-lg border border-slate-700 focus:border-emerald-500"
                             />
                         </div>
                     </>
@@ -283,7 +283,7 @@ export default function SettingsPage({ currentPin, onPinChange }: SettingsPagePr
 
                     <button
                         onClick={cancelVerification}
-                        className="px-4 py-3 bg-slate-300 dark:bg-slate-700 rounded-lg text-slate-800 dark:text-white transition-colors"
+                        className="px-4 py-3 bg-slate-700 rounded-lg text-slate-50 transition-colors"
                     >
                         Cancelar
                     </button>
@@ -294,7 +294,7 @@ export default function SettingsPage({ currentPin, onPinChange }: SettingsPagePr
 
 
     return (
-        <div className="p-8 text-slate-900 dark:text-white">
+        <div className="p-8 text-slate-50">
             <h2 className="text-3xl font-bold mb-4 flex items-center gap-3">
                 Configurações <Settings className="w-6 h-6 text-emerald-500" />
             </h2>
@@ -303,10 +303,10 @@ export default function SettingsPage({ currentPin, onPinChange }: SettingsPagePr
             {renderStatusMessage()}
             <div className="h-4"></div>
 
-            <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 p-6 rounded-xl shadow-lg space-y-4">
+            <div className="bg-slate-900 border border-slate-700 p-6 rounded-xl shadow-lg space-y-4">
 
                 {/* Opção 1: PIN de Segurança */}
-                <div className="flex justify-between items-center p-3 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                <div className="flex justify-between items-center p-3 rounded-lg border border-slate-800 hover:bg-slate-800 transition-colors">
                     <div className="flex items-center gap-3">
                         <Lock className="w-5 h-5 text-emerald-500" />
                         <div>
@@ -322,10 +322,10 @@ export default function SettingsPage({ currentPin, onPinChange }: SettingsPagePr
                     </button>
                 </div>
 
-                <hr className="border-slate-200 dark:border-slate-800" />
+                <hr className="border-slate-800" />
 
                 {/* Opção 2: Senha de Acesso Única (Firebase Auth) */}
-                <div className="flex justify-between items-center p-3 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                <div className="flex justify-between items-center p-3 rounded-lg border border-slate-800 hover:bg-slate-800 transition-colors">
                     <div className="flex items-center gap-3">
                         <Key className="w-5 h-5 text-purple-500" />
                         <div>
@@ -342,10 +342,43 @@ export default function SettingsPage({ currentPin, onPinChange }: SettingsPagePr
                 </div>
             </div>
 
+            {/* Aparência */}
+            <div className="mt-6 bg-slate-900 border border-slate-700 p-6 rounded-xl shadow-lg">
+                <div className="flex items-center gap-3 mb-4">
+                    <Palette className="w-5 h-5 text-sky-500" />
+                    <div>
+                        <p className="font-semibold">Aparência</p>
+                        <p className="text-sm text-slate-500">Escolha o tema do painel. A preferência fica salva neste navegador.</p>
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3 max-w-md">
+                    {([
+                        { id: "light", label: "Claro", icon: Sun },
+                        { id: "dark", label: "Escuro", icon: Moon },
+                    ] as const).map(option => {
+                        const Icon = option.icon;
+                        const active = theme === option.id;
+                        return (
+                            <button
+                                key={option.id}
+                                onClick={() => setTheme(option.id)}
+                                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border text-sm font-medium transition-colors ${active
+                                    ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
+                                    : "border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-slate-50"
+                                    }`}
+                            >
+                                <Icon className="w-4 h-4" />
+                                {option.label}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
             {/* === MODAL GLOBAL === */}
             {verification.step !== "idle" && (
                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center px-4 z-50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-slate-900 w-full max-w-md p-6 rounded-2xl shadow-2xl space-y-4 relative">
+                    <div className="bg-slate-900 w-full max-w-md p-6 rounded-2xl shadow-2xl space-y-4 relative">
 
                         <button
                             onClick={cancelVerification}
