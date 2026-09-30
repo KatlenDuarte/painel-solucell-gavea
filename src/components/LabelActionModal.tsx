@@ -99,8 +99,8 @@ export default function LabelActionModal({ isOpen, onClose, product, onConfirm }
                 {/* Header */}
                 <div className="flex justify-between items-start mb-5">
                     <div>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-amber-500">Impressão & Ajuste Rápido</span>
-                        <h3 className="text-lg font-black text-slate-50 mt-1 leading-tight">Configurar Etiqueta</h3>
+                        <span className="text-xs font-semibold text-amber-500">Impressão & Ajuste Rápido</span>
+                        <h3 className="text-lg font-semibold text-slate-50 mt-1 leading-tight">Configurar Etiqueta</h3>
                     </div>
                     <button 
                         onClick={onClose} 
@@ -115,7 +115,7 @@ export default function LabelActionModal({ isOpen, onClose, product, onConfirm }
                     
                     {/* SEÇÃO 1: DADOS CADASTRAIS DA ETIQUETA */}
                     <div className="space-y-4 bg-slate-900/30 border border-slate-800/80 rounded-xl p-4">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Informações Visuais do Produto</span>
+                        <span className="text-xs font-semibold text-slate-400 block mb-1">Informações Visuais do Produto</span>
                         
                         <div>
                             <label className="block text-xs font-medium text-slate-400 mb-1.5">Nome na Etiqueta</label>
@@ -210,7 +210,7 @@ export default function LabelActionModal({ isOpen, onClose, product, onConfirm }
 
                     {/* SEÇÃO 2: QUANTIDADE DE CÓPIAS PARA IMPRESSÃO */}
                     <div className="space-y-2">
-                        <label className="text-[10px] uppercase font-black text-slate-400 tracking-wider">Quantidade de Cópias (Etiquetas)</label>
+                        <label className="text-xs font-semibold text-slate-400">Quantidade de Cópias (Etiquetas)</label>
                         <div className="flex items-center gap-3 bg-slate-950 border border-slate-800 rounded-xl p-2 justify-between">
                             <button 
                                 type="button"
@@ -225,7 +225,7 @@ export default function LabelActionModal({ isOpen, onClose, product, onConfirm }
                                 min="1"
                                 value={quantity}
                                 onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                                className="bg-transparent text-center text-xl font-black text-slate-50 outline-none w-20"
+                                className="bg-transparent text-center text-xl font-semibold text-slate-50 outline-none w-20"
                             />
 
                             <button 
@@ -243,13 +243,13 @@ export default function LabelActionModal({ isOpen, onClose, product, onConfirm }
                         <button 
                             type="button"
                             onClick={onClose}
-                            className="flex-1 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 rounded-xl text-xs font-black uppercase transition-all"
+                            className="flex-1 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 rounded-xl text-xs font-semibold transition-all"
                         >
                             Cancelar
                         </button>
                         <button 
                             type="submit"
-                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-xs font-black uppercase transition-all shadow-lg shadow-emerald-500/10"
+                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary-hover text-white rounded-xl text-xs font-semibold transition-all shadow-lg"
                         >
                             <Printer size={14} /> Confirmar & Imprimir
                         </button>

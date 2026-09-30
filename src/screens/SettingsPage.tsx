@@ -1,9 +1,11 @@
 // === CONFIGURAÇÕES COMPLETA E ESTILIZADA COM CONFIRMAÇÃO ===
 
 import { useState } from "react";
+import type React from "react";
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { auth } from "../lib/firebase";
-import { Lock, UserCheck, Key, AlertTriangle, CheckCircle, X, Settings, Palette, Sun, Moon } from "lucide-react";
+import { Lock, Key, AlertTriangle, CheckCircle, X, Palette, Sun, Moon, Shield } from "lucide-react";
+import { Page, PageHeader, Card, CardHeader, Button, IconButton } from "../components/ui";
 import { useTheme } from "../contexts/ThemeContext";
 
 // Tipagem
@@ -158,17 +160,15 @@ export default function SettingsPage({ currentPin, onPinChange }: SettingsPagePr
     const renderStatusMessage = () => {
         if (success) {
             return (
-                <div className="flex items-center gap-2 bg-emerald-600/20 text-emerald-300 p-3 rounded-xl border border-emerald-600 animate-fadeIn">
-                    <CheckCircle className="w-5 h-5" />
-                    <span className="font-medium">{success}</span>
+                <div className="flex items-center gap-2 rounded-lg bg-success-soft px-4 py-3 text-sm font-medium text-success">
+                    <CheckCircle className="h-4 w-4" /> {success}
                 </div>
             );
         }
         if (error) {
             return (
-                <div className="flex items-center gap-2 bg-red-600/20 text-red-400 p-3 rounded-xl border border-red-600 animate-shake">
-                    <AlertTriangle className="w-5 h-5" />
-                    <span className="font-medium">{error}</span>
+                <div className="flex items-center gap-2 rounded-lg bg-danger-soft px-4 py-3 text-sm font-medium text-danger">
+                    <AlertTriangle className="h-4 w-4" /> {error}
                 </div>
             );
         }
@@ -182,31 +182,18 @@ export default function SettingsPage({ currentPin, onPinChange }: SettingsPagePr
 
         return (
             <>
-                <div className="flex flex-col items-center justify-center space-y-3 p-4 bg-slate-800/50 rounded-lg">
-                    <Lock className="w-10 h-10 text-yellow-400" />
-                    <p className="text-lg font-semibold">
-                        Confirmação Necessária
-                    </p>
-                    <p className="text-slate-400 text-sm text-center">
-                        Você está prestes a alterar o **{getModalTitle(target)}**.
-                        {isPin ? " Confirme para prosseguir com a definição do novo PIN." : " Esta ação exigirá sua senha atual para reautenticação."}
-                    </p>
+                <div className="p-5">
+                    <div className="flex items-start gap-3 rounded-lg bg-warning-soft px-4 py-3 text-sm text-warning">
+                        <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+                        <p>
+                            Você está prestes a alterar o <strong>{getModalTitle(target)}</strong>.
+                            {isPin ? " Confirme para definir um novo PIN." : " Será necessário informar a senha atual."}
+                        </p>
+                    </div>
                 </div>
-
-                <div className="flex gap-3 mt-6">
-                    <button
-                        onClick={confirmAndProceed}
-                        className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                    >
-                        {isPin ? "Prosseguir" : "Continuar para Alteração"}
-                    </button>
-
-                    <button
-                        onClick={cancelVerification}
-                        className="px-4 py-3 bg-slate-700 rounded-lg text-slate-50 transition-colors"
-                    >
-                        Cancelar
-                    </button>
+                <div className="flex justify-end gap-2 border-t border-line px-5 py-4">
+                    <Button onClick={cancelVerification}>Cancelar</Button>
+                    <Button variant="primary" onClick={confirmAndProceed}>{isPin ? "Prosseguir" : "Continuar"}</Button>
                 </div>
             </>
         )
@@ -219,139 +206,96 @@ export default function SettingsPage({ currentPin, onPinChange }: SettingsPagePr
 
         return (
             <>
-                {error && <div className="mb-4">{renderStatusMessage()}</div>}
+                <div className="space-y-4 p-5">
+                    {error && renderStatusMessage()}
 
-                {/* PIN */}
-                {isPin && (
-                    <div>
-                        <label className="block text-sm font-medium mb-2">Novo PIN (4 dígitos)</label>
-                        <input
-                            type="password"
-                            value={securityPin}
-                            onChange={(e) => setSecurityPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                            className={`w-full px-4 py-3 rounded-lg text-center text-3xl tracking-[0.6em] outline-none transition-all duration-300 bg-slate-800/60 text-slate-50 border ${securityPin.length === 4 ? "border-emerald-500" : "border-slate-700"}`}
-                            maxLength={4}
-                            placeholder="••••"
-                        />
-                    </div>
-                )}
-
-                {/* SENHAS (Para store_password) */}
-                {!isPin && (
-                    <>
+                    {isPin && (
                         <div>
-                            <label className="block text-sm mb-2">Senha atual (Para Reautenticação)</label>
+                            <label className="ui-label">Novo PIN (4 dígitos)</label>
                             <input
                                 type="password"
-                                value={currentPassword}
-                                onChange={(e) => setCurrentPassword(e.target.value)}
-                                className="w-full px-4 py-3 bg-slate-800 rounded-lg border border-slate-700 focus:border-emerald-500"
+                                inputMode="numeric"
+                                value={securityPin}
+                                onChange={(e) => setSecurityPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                                className={`ui-input h-14 text-center text-2xl tracking-[0.6em] ${securityPin.length === 4 ? "!border-success" : ""}`}
+                                maxLength={4}
+                                placeholder="••••"
                             />
                         </div>
+                    )}
 
-                        <div>
-                            <label className="block text-sm mb-2">Nova senha (Mínimo 6 caracteres)</label>
-                            <input
-                                type="password"
-                                value={newPassword}
-                                onChange={(e) => setNewPassword(e.target.value)}
-                                className="w-full px-4 py-3 bg-slate-800 rounded-lg border border-slate-700 focus:border-emerald-500"
-                            />
-                        </div>
+                    {!isPin && (
+                        <>
+                            <div>
+                                <label className="ui-label">Senha atual</label>
+                                <input type="password" autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="ui-input" />
+                            </div>
+                            <div>
+                                <label className="ui-label">Nova senha</label>
+                                <input type="password" autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="ui-input" />
+                                <p className="mt-1 text-xs text-fg-subtle">Mínimo de 6 caracteres.</p>
+                            </div>
+                            <div>
+                                <label className="ui-label">Confirmar nova senha</label>
+                                <input type="password" autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="ui-input" />
+                                {confirmPassword && newPassword !== confirmPassword && (
+                                    <p className="mt-1 text-xs text-danger">As senhas não coincidem.</p>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </div>
 
-                        <div>
-                            <label className="block text-sm mb-2">Confirmar nova senha</label>
-                            <input
-                                type="password"
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                className="w-full px-4 py-3 bg-slate-800 rounded-lg border border-slate-700 focus:border-emerald-500"
-                            />
-                        </div>
-                    </>
-                )}
-
-                <div className="flex gap-3 mt-6">
-                    <button
-                        onClick={changePassword}
-                        disabled={isChangeDisabled()}
-                        className={`flex-1 px-4 py-3 text-white font-semibold rounded-lg transition-colors ${isChangeDisabled() ? "bg-slate-600 opacity-60 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700"
-                            }`}
-                    >
-                        Confirmar Alteração
-                    </button>
-
-                    <button
-                        onClick={cancelVerification}
-                        className="px-4 py-3 bg-slate-700 rounded-lg text-slate-50 transition-colors"
-                    >
-                        Cancelar
-                    </button>
+                <div className="flex justify-end gap-2 border-t border-line px-5 py-4">
+                    <Button onClick={cancelVerification}>Cancelar</Button>
+                    <Button variant="primary" onClick={changePassword} disabled={isChangeDisabled()}>Salvar alteração</Button>
                 </div>
             </>
         )
     }
 
-
-    return (
-        <div className="p-8 text-slate-50">
-            <h2 className="text-3xl font-bold mb-4 flex items-center gap-3">
-                Configurações <Settings className="w-6 h-6 text-emerald-500" />
-            </h2>
-            <p className="text-slate-400 mb-6">Gerencie suas credenciais e PIN de acesso.</p>
-
-            {renderStatusMessage()}
-            <div className="h-4"></div>
-
-            <div className="bg-slate-900 border border-slate-700 p-6 rounded-xl shadow-lg space-y-4">
-
-                {/* Opção 1: PIN de Segurança */}
-                <div className="flex justify-between items-center p-3 rounded-lg border border-slate-800 hover:bg-slate-800 transition-colors">
-                    <div className="flex items-center gap-3">
-                        <Lock className="w-5 h-5 text-emerald-500" />
-                        <div>
-                            <p className="font-semibold">PIN de Segurança</p>
-                            <p className="text-sm text-slate-500">Usado para proteção das telas. PIN Atual: ****{currentPin ? currentPin.slice(-2) : '??'}</p>
-                        </div>
-                    </div>
-                    <button
-                        onClick={() => startVerification("security_pin")}
-                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium"
-                    >
-                        Alterar
-                    </button>
-                </div>
-
-                <hr className="border-slate-800" />
-
-                {/* Opção 2: Senha de Acesso Única (Firebase Auth) */}
-                <div className="flex justify-between items-center p-3 rounded-lg border border-slate-800 hover:bg-slate-800 transition-colors">
-                    <div className="flex items-center gap-3">
-                        <Key className="w-5 h-5 text-purple-500" />
-                        <div>
-                            <p className="font-semibold">Senha de Acesso do Painel (Loja Gávea)</p>
-                            <p className="text-sm text-slate-500">Credencial usada para fazer login no sistema.</p>
-                        </div>
-                    </div>
-                    <button
-                        onClick={() => startVerification("store_password")}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium"
-                    >
-                        Alterar
-                    </button>
+    const SettingRow = ({ icon: Icon, title, description, action }: { icon: typeof Lock; title: string; description: string; action: React.ReactNode }) => (
+        <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line bg-subtle text-fg-subtle">
+                    <Icon className="h-4 w-4" />
+                </span>
+                <div>
+                    <p className="text-sm font-medium text-fg">{title}</p>
+                    <p className="text-sm text-fg-subtle">{description}</p>
                 </div>
             </div>
+            <div className="shrink-0">{action}</div>
+        </div>
+    );
 
-            {/* Aparência */}
-            <div className="mt-6 bg-slate-900 border border-slate-700 p-6 rounded-xl shadow-lg">
-                <div className="flex items-center gap-3 mb-4">
-                    <Palette className="w-5 h-5 text-sky-500" />
-                    <div>
-                        <p className="font-semibold">Aparência</p>
-                        <p className="text-sm text-slate-500">Escolha o tema do painel. A preferência fica salva neste navegador.</p>
-                    </div>
+    return (
+        <Page narrow>
+            <PageHeader title="Configurações" description="Segurança da conta e preferências do painel." />
+
+            {renderStatusMessage()}
+
+            <Card padded={false}>
+                <CardHeader title="Segurança" description="Credenciais de acesso ao painel" icon={Shield} />
+                <div className="divide-y divide-line">
+                    {SettingRow({
+                        icon: Lock,
+                        title: "PIN de segurança",
+                        description: "Protege telas sensíveis com um código de 4 dígitos.",
+                        action: <Button onClick={() => startVerification("security_pin")}>Alterar PIN</Button>,
+                    })}
+                    {SettingRow({
+                        icon: Key,
+                        title: "Senha do painel",
+                        description: "Senha usada para entrar no sistema da Loja Gávea.",
+                        action: <Button onClick={() => startVerification("store_password")}>Alterar senha</Button>,
+                    })}
                 </div>
-                <div className="grid grid-cols-2 gap-3 max-w-md">
+            </Card>
+
+            <Card padded={false}>
+                <CardHeader title="Aparência" description="A preferência fica salva neste navegador" icon={Palette} />
+                <div className="grid max-w-lg grid-cols-2 gap-3 p-5">
                     {([
                         { id: "light", label: "Claro", icon: Sun },
                         { id: "dark", label: "Escuro", icon: Moon },
@@ -362,42 +306,38 @@ export default function SettingsPage({ currentPin, onPinChange }: SettingsPagePr
                             <button
                                 key={option.id}
                                 onClick={() => setTheme(option.id)}
-                                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border text-sm font-medium transition-colors ${active
-                                    ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
-                                    : "border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-slate-50"
-                                    }`}
+                                className={`overflow-hidden rounded-xl border text-left transition-colors ${active ? "border-primary ring-3 ring-primary/15" : "border-line hover:border-line-strong"}`}
                             >
-                                <Icon className="w-4 h-4" />
-                                {option.label}
+                                <div className={`flex h-20 gap-1.5 p-2.5 ${option.id === "dark" ? "bg-[#0c0d10]" : "bg-[#f5f6f8]"}`}>
+                                    <div className={`w-1/4 rounded-md ${option.id === "dark" ? "bg-[#14161a]" : "bg-white"}`} />
+                                    <div className="flex flex-1 flex-col gap-1.5">
+                                        <div className={`h-3 w-2/3 rounded ${option.id === "dark" ? "bg-[#25282f]" : "bg-[#e6e8eb]"}`} />
+                                        <div className={`flex-1 rounded-md ${option.id === "dark" ? "bg-[#14161a]" : "bg-white"}`} />
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 border-t border-line px-3 py-2.5 text-sm font-medium text-fg">
+                                    <Icon className={`h-4 w-4 ${active ? "text-primary" : "text-fg-subtle"}`} />
+                                    {option.label}
+                                </div>
                             </button>
                         );
                     })}
                 </div>
-            </div>
+            </Card>
 
-            {/* === MODAL GLOBAL === */}
+            {/* === MODAL === */}
             {verification.step !== "idle" && (
-                <div className="fixed inset-0 bg-black/80 flex items-center justify-center px-4 z-50 backdrop-blur-sm">
-                    <div className="bg-slate-900 w-full max-w-md p-6 rounded-2xl shadow-2xl space-y-4 relative">
-
-                        <button
-                            onClick={cancelVerification}
-                            className="absolute top-4 right-4 text-slate-500 hover:text-red-500 transition-colors"
-                        >
-                            <X className="w-6 h-6" />
-                        </button>
-
-                        <h3 className="text-2xl font-bold text-center pt-2 mb-4">
-                            Alterar {getModalTitle(verification.targetSetting)}
-                        </h3>
-
-                        {/* Conteúdo dinâmico do modal */}
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-[2px]" onClick={cancelVerification}>
+                    <div className="w-full max-w-md rounded-xl border border-line bg-surface shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between border-b border-line px-5 py-4">
+                            <h3 className="text-base font-semibold text-fg">Alterar {getModalTitle(verification.targetSetting)}</h3>
+                            <IconButton icon={X} label="Fechar" onClick={cancelVerification} />
+                        </div>
                         {verification.step === "confirm" && renderConfirmStep()}
                         {verification.step === "change" && renderChangeStep()}
-
                     </div>
                 </div>
             )}
-        </div>
+        </Page>
     );
 }

@@ -178,7 +178,7 @@ const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 md:p-6">
 
-      <div className="w-full max-w-5xl max-h-[95vh] overflow-y-auto rounded-3xl border border-slate-800 bg-slate-950 shadow-2xl shadow-black/40">
+      <div className="w-full max-w-5xl max-h-[95vh] overflow-y-auto rounded-xl border border-slate-800 bg-slate-950 shadow-2xl shadow-black/40">
 
         {/* HEADER */}
 
@@ -190,12 +190,12 @@ const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
 
             <div className="flex items-center gap-4">
 
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-500 flex items-center justify-center shadow-lg">
                 <Wrench className="w-7 h-7 text-white" />
               </div>
 
               <div>
-                <h2 className="text-2xl md:text-3xl font-black text-slate-50 tracking-tight">
+                <h2 className="text-2xl md:text-3xl font-semibold text-slate-50 tracking-tight">
                   Editar Manutenção
                 </h2>
 
@@ -204,7 +204,7 @@ const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
                 </p>
 
                 <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-slate-900 border border-slate-800">
-                  <span className="text-[10px] uppercase tracking-widest text-slate-500">
+                  <span className="text-xs text-slate-500">
                     ID
                   </span>
 
@@ -257,7 +257,7 @@ const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
 
           {/* CLIENTE */}
 
-          <section className="rounded-3xl border border-slate-800 bg-slate-900/30 p-5 md:p-6">
+          <section className="rounded-xl border border-slate-800 bg-slate-900/30 p-5 md:p-6">
 
             <div className="flex items-center gap-3 mb-6">
 
@@ -280,7 +280,7 @@ const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
               <div>
-                <label className="block text-[11px] uppercase tracking-wider text-slate-500 font-bold mb-2">
+                <label className="block text-[11px] text-slate-500 font-bold mb-2">
                   Nome do Cliente
                 </label>
 
@@ -296,7 +296,7 @@ const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] uppercase tracking-wider text-slate-500 font-bold mb-2">
+                <label className="block text-[11px] text-slate-500 font-bold mb-2">
                   Telefone
                 </label>
 
@@ -323,7 +323,7 @@ const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
 
           {/* APARELHO */}
 
-          <section className="rounded-3xl border border-slate-800 bg-slate-900/30 p-5 md:p-6">
+          <section className="rounded-xl border border-slate-800 bg-slate-900/30 p-5 md:p-6">
 
             <div className="flex items-center gap-3 mb-6">
 
@@ -346,7 +346,7 @@ const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
               <div>
-                <label className="block text-[11px] uppercase tracking-wider text-slate-500 font-bold mb-2">
+                <label className="block text-[11px] text-slate-500 font-bold mb-2">
                   Aparelho
                 </label>
 
@@ -362,7 +362,7 @@ const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] uppercase tracking-wider text-slate-500 font-bold mb-2">
+                <label className="block text-[11px] text-slate-500 font-bold mb-2">
                   Marca
                 </label>
 
@@ -389,7 +389,7 @@ const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] uppercase tracking-wider text-slate-500 font-bold mb-2">
+                <label className="block text-[11px] text-slate-500 font-bold mb-2">
                   Modelo
                 </label>
 
@@ -409,7 +409,7 @@ const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
 
           {/* PROBLEMA */}
 
-          <section className="rounded-3xl border border-amber-500/10 bg-amber-500/5 p-5 md:p-6">
+          <section className="rounded-xl border border-amber-500/10 bg-amber-500/5 p-5 md:p-6">
 
             <div className="flex items-center gap-3 mb-6">
 
@@ -447,7 +447,7 @@ const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
 
             {/* STATUS */}
 
-            <section className="rounded-3xl border border-slate-800 bg-slate-900/30 p-5 md:p-6">
+            <section className="rounded-xl border border-slate-800 bg-slate-900/30 p-5 md:p-6">
 
               <div className="flex items-center gap-3 mb-6">
 
@@ -470,7 +470,7 @@ const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
               <div className="space-y-4">
 
                 <div>
-                  <label className="block text-[11px] uppercase tracking-wider text-slate-500 font-bold mb-2">
+                  <label className="block text-[11px] text-slate-500 font-bold mb-2">
                     Status
                   </label>
 
@@ -545,7 +545,7 @@ const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
 
             {/* FINANCEIRO */}
 
-            <section className="rounded-3xl border border-emerald-500/10 bg-emerald-500/5 p-5 md:p-6">
+            <section className="rounded-xl border border-emerald-500/10 bg-emerald-500/5 p-5 md:p-6">
 
               <div className="flex items-center gap-3 mb-6">
 
@@ -568,7 +568,7 @@ const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
               <div className="space-y-4">
 
                 <div>
-                  <label className="block text-[11px] uppercase tracking-wider text-slate-500 font-bold mb-2">
+                  <label className="block text-[11px] text-slate-500 font-bold mb-2">
                     Valor do Serviço
                   </label>
 
@@ -592,7 +592,7 @@ const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
                   <div>
-                    <label className="block text-[11px] uppercase tracking-wider text-slate-500 font-bold mb-2">
+                    <label className="block text-[11px] text-slate-500 font-bold mb-2">
                       Pedido da Peça
                     </label>
 
@@ -612,7 +612,7 @@ const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] uppercase tracking-wider text-slate-500 font-bold mb-2">
+                    <label className="block text-[11px] text-slate-500 font-bold mb-2">
                       Entrega
                     </label>
 
@@ -641,7 +641,7 @@ const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
 
           {/* OBSERVAÇÕES */}
 
-          <section className="rounded-3xl border border-slate-800 bg-slate-900/30 p-5 md:p-6">
+          <section className="rounded-xl border border-slate-800 bg-slate-900/30 p-5 md:p-6">
 
             <div className="flex items-center gap-3 mb-6">
 
@@ -688,7 +688,7 @@ const EditMaintenanceModal: React.FC<EditMaintenanceModalProps> = ({
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold text-sm transition-all shadow-lg shadow-blue-500/20 hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center gap-2"
+              className="px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold text-sm transition-all shadow-lg hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>

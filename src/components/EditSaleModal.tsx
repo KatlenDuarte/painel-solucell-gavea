@@ -129,7 +129,7 @@ export default function EditSaleModal({ sale, isOpen, onClose, onSave }: EditSal
                 {/* HEADER */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 shrink-0">
                     <div>
-                        <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
+                        <p className="text-[11px] font-medium text-slate-400">
                             Gerenciamento
                         </p>
                         <h2 className="text-lg font-semibold text-slate-100">
@@ -188,7 +188,7 @@ export default function EditSaleModal({ sale, isOpen, onClose, onSave }: EditSal
                                         }`}
                                     >
                                         <Icon size={15} className="shrink-0" />
-                                        <span className="text-xs font-medium uppercase tracking-wide">
+                                        <span className="text-xs font-medium tracking-wide">
                                             {option.label}
                                         </span>
                                     </button>

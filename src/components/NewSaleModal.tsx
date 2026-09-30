@@ -415,7 +415,7 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({ onClose, storeEmail, onSale
                         <div className={`p-2 rounded-lg bg-slate-950 border ${theme.border} ${theme.text}`}>
                             {theme.icon}
                         </div>
-                        <h2 className="text-sm font-semibold text-slate-50 tracking-wider uppercase">
+                        <h2 className="text-sm font-semibold text-slate-50">
                             {activeTab === 'venda' ? 'Nova Venda' : activeTab === 'manutencao' ? 'Ordem de Manutenção' : 'Registro de Perda'}
                         </h2>
                     </div>
@@ -425,9 +425,9 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({ onClose, storeEmail, onSale
                             <button
                                 key={tab}
                                 onClick={() => { setActiveTab(tab); setPaymentMethod('PIX'); }}
-                                className={`px-4 py-1.5 rounded-lg text-xs font-medium tracking-wide transition-all uppercase ${activeTab === tab ? 'bg-slate-900 text-slate-50 shadow-sm' : 'text-slate-500 hover:text-slate-400'}`}
+                                className={`px-4 py-1.5 rounded-lg text-xs font-medium tracking-wide transition-all ${activeTab === tab ? 'bg-slate-900 text-slate-50 shadow-sm' : 'text-slate-500 hover:text-slate-400'}`}
                             >
-                                {tab}
+                                {tab === 'venda' ? 'Venda' : tab === 'manutencao' ? 'Manutenção' : 'Perda'}
                             </button>
                         ))}
                     </div>
@@ -461,7 +461,7 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({ onClose, storeEmail, onSale
                                                 <button key={p.id} onClick={() => handleAddProduct(p, activeTab)} className="w-full p-2.5 flex justify-between items-center rounded-lg hover:bg-slate-900 text-left transition-colors">
                                                     <div>
                                                         <p className="font-medium text-slate-200 text-xs">{p.name}</p>
-                                                        <p className="text-[10px] text-slate-500 mt-0.5">Disponível: {p.stock}</p>
+                                                        <p className="text-xs text-slate-500 mt-0.5">Disponível: {p.stock}</p>
                                                     </div>
                                                     <span className="text-xs font-semibold text-slate-400">R$ {p.price.toFixed(2)}</span>
                                                 </button>
@@ -471,7 +471,7 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({ onClose, storeEmail, onSale
                                 </div>
 
                                 <div className="space-y-2">
-                                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block px-1">Itens da Lista</span>
+                                    <span className="text-xs font-semibold text-slate-500 block px-1">Itens da Lista</span>
                                     {(activeTab === 'venda' ? selectedProducts : lossProducts).length === 0 ? (
                                         <div className="border border-dashed border-slate-800 p-8 rounded-xl text-center text-xs text-slate-500">
                                             Nenhum item selecionado. Use o campo de busca acima.
@@ -484,7 +484,7 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({ onClose, storeEmail, onSale
                                                 </div>
                                                 <div>
                                                     <h4 className="font-medium text-slate-200 text-xs">{item.name}</h4>
-                                                    <p className="text-[10px] text-slate-500 mt-0.5">R$ {item.price.toFixed(2)} un.</p>
+                                                    <p className="text-xs text-slate-500 mt-0.5">R$ {item.price.toFixed(2)} un.</p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-3">
@@ -504,11 +504,11 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({ onClose, storeEmail, onSale
                                 {activeTab === 'venda' && (
                                     <div className="bg-slate-950/30 border border-slate-800/80 p-4 rounded-xl flex items-end gap-3">
                                         <div className="flex-1 space-y-1.5">
-                                            <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Item Avulso (Fora do Catálogo)</label>
+                                            <label className="text-xs font-medium text-slate-500">Item Avulso (Fora do Catálogo)</label>
                                             <input className="w-full bg-slate-950 border border-slate-800 p-2.5 rounded-lg text-xs outline-none text-slate-50 placeholder-slate-600 focus:border-slate-700" placeholder="Descrição rápida da mercadoria/serviço" value={nonCatalogItem.name} onChange={e => setNonCatalogItem({ ...nonCatalogItem, name: e.target.value })} />
                                         </div>
                                         <div className="w-28 space-y-1.5">
-                                            <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Preço</label>
+                                            <label className="text-xs font-medium text-slate-500">Preço</label>
                                             <input className="w-full bg-slate-950 border border-slate-800 p-2.5 rounded-lg text-xs font-mono text-right outline-none text-slate-50 focus:border-slate-700" value={nonCatalogPriceInput} placeholder="R$ 0,00" onChange={e => { const [v, s] = formatCurrencyInput(e.target.value); setNonCatalogPriceInput(s); setNonCatalogItem({ ...nonCatalogItem, price: v }); }} />
                                         </div>
                                         <button onClick={handleAddNonCatalog} className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-50 p-2.5 rounded-lg transition-all"><Plus size={16} /></button>
@@ -517,7 +517,7 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({ onClose, storeEmail, onSale
 
                                 {activeTab === 'perda' && (
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider ml-1">Justificativa da Baixa / Perda</label>
+                                        <label className="text-xs font-medium text-slate-500 ml-1">Justificativa da Baixa / Perda</label>
                                         <textarea className="w-full bg-slate-950 border border-slate-800 p-3 rounded-xl text-xs h-20 outline-none text-slate-50 placeholder-slate-600 focus:border-slate-700 resize-none" placeholder="Informe o motivo detalhado..." value={lossReason} onChange={e => setLossReason(e.target.value)} />
                                     </div>
                                 )}
@@ -528,25 +528,25 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({ onClose, storeEmail, onSale
                             <div className="bg-slate-950/40 border border-slate-800/80 p-5 rounded-xl space-y-4">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Nome do Cliente</label>
+                                        <label className="text-xs font-medium text-slate-500">Nome do Cliente</label>
                                         <input className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-50 outline-none focus:border-slate-700" placeholder="Ex: João Silva da Costa" value={maint.client} onChange={e => setMaint({ ...maint, client: e.target.value })} />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Aparelho / Dispositivo</label>
+                                        <label className="text-xs font-medium text-slate-500">Aparelho / Dispositivo</label>
                                         <input className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-50 outline-none focus:border-slate-700" placeholder="Ex: iPhone 13 Pro Max" value={maint.device} onChange={e => setMaint({ ...maint, device: e.target.value })} />
                                     </div>
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Laudo Técnico / Serviço Realizado</label>
+                                    <label className="text-xs font-medium text-slate-500">Laudo Técnico / Serviço Realizado</label>
                                     <input className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-50 outline-none focus:border-slate-700" placeholder="Ex: Troca de tela" value={maint.problem} onChange={e => setMaint({ ...maint, problem: e.target.value })} />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4 pt-2">
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-medium text-rose-500 uppercase tracking-wider">Custo da Peça (Bancada)</label>
+                                        <label className="text-xs font-medium text-rose-500">Custo da Peça (Bancada)</label>
                                         <input className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs font-mono text-slate-50 outline-none focus:border-slate-700" placeholder="R$ 0,00" value={maintPartInput} onChange={e => { const [v, s] = formatCurrencyInput(e.target.value); setMaintPartInput(s); setMaint({ ...maint, partCost: v }); }} />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-medium text-emerald-500 uppercase tracking-wider">Valor Cobrado do Cliente</label>
+                                        <label className="text-xs font-medium text-emerald-500">Valor Cobrado do Cliente</label>
                                         <input className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs font-mono text-slate-50 outline-none focus:border-slate-700" placeholder="R$ 0,00" value={maintTotalInput} onChange={e => { const [v, s] = formatCurrencyInput(e.target.value); setMaintTotalInput(s); setMaint({ ...maint, totalService: v }); }} />
                                     </div>
                                 </div>
@@ -579,14 +579,14 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({ onClose, storeEmail, onSale
                                 )}
                                 <div className="h-px bg-slate-800/60 my-1" />
                                 <div className="flex justify-between items-center">
-                                    <span className="text-xs font-semibold text-slate-50 uppercase tracking-wider">Total Geral</span>
+                                    <span className="text-xs font-semibold text-slate-50">Total Geral</span>
                                     <span className="text-lg font-bold font-mono text-emerald-400">R$ {totalFinalCalculado.toFixed(2)}</span>
                                 </div>
                             </div>
 
                             {activeTab !== 'perda' && (
                                 <div className="space-y-4">
-                                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block px-1">Método de Pagamento</span>
+                                    <span className="text-xs font-semibold text-slate-500 block px-1">Método de Pagamento</span>
                                     <div className="grid grid-cols-3 gap-2">
                                         {((['PIX', 'Cartão', 'Dinheiro', 'Múltiplos', 'Fiado'] as const)).map(method => (
                                             <button
@@ -599,7 +599,7 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({ onClose, storeEmail, onSale
                                                 {method === 'Dinheiro' && <Banknote size={14} />}
                                                 {method === 'Múltiplos' && <Layers size={14} />}
                                                 {method === 'Fiado' && <UserX size={14} />}
-                                                <span className="text-[10px] font-medium font-sans">{method}</span>
+                                                <span className="text-xs font-medium font-sans">{method}</span>
                                             </button>
                                         ))}
                                     </div>
@@ -620,7 +620,7 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({ onClose, storeEmail, onSale
                                                 <input className="w-28 bg-slate-900 border border-slate-800 p-1.5 rounded font-mono text-right text-xs text-slate-50 outline-none" placeholder="R$ 0,00" value={multiDinheiroInput} onChange={e => { const [v, s] = formatCurrencyInput(e.target.value); setMultiDinheiroInput(s); setPayments(p => ({ ...p, dinheiro: v })); }} />
                                             </div>
                                             <div className="h-px bg-slate-800/50" />
-                                            <div className="flex justify-between text-[10px]">
+                                            <div className="flex justify-between text-xs">
                                                 <span className="text-slate-500">Total Informado:</span>
                                                 <span className={`font-mono font-bold ${Math.abs(totalMultiPreenchido - totalFinalCalculado) < 0.01 ? 'text-emerald-400' : 'text-rose-400'}`}>R$ {totalMultiPreenchido.toFixed(2)} / R$ {totalFinalCalculado.toFixed(2)}</span>
                                             </div>
@@ -645,7 +645,7 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({ onClose, storeEmail, onSale
                         <button
                             onClick={handleFinish}
                             disabled={isLoading || totalFinalCalculado <= 0}
-                            className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-600 text-white font-semibold rounded-xl text-xs uppercase tracking-wider transition-all shadow-lg shadow-emerald-950/20"
+                            className="w-full py-3.5 bg-primary hover:bg-primary-hover disabled:bg-slate-800 disabled:text-slate-600 text-white font-semibold rounded-xl text-xs transition-all shadow-lg"
                         >
                             {isLoading ? "Processando..." : "Concluir Lançamento"}
                         </button>
@@ -677,7 +677,7 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({ onClose, storeEmail, onSale
 
                                         <button
                                             onClick={handlePrint}
-                                            className="px-4 py-2 rounded-lg bg-emerald-600 text-white"
+                                            className="px-4 py-2 rounded-lg bg-primary text-white"
                                         >
                                             Imprimir
                                         </button>

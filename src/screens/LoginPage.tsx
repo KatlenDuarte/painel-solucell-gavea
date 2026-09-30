@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../lib/firebase";
-import { Sun, Moon } from "lucide-react";
+import { Sun, Moon, Check, Loader2 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import logo from "../assets/logo-solucelll.png";
 
@@ -40,67 +40,86 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
   };
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-slate-950 p-4 font-sans">
-      <div className="absolute top-4 right-4">
+    <div className="fixed inset-0 grid bg-bg font-sans lg:grid-cols-[1.1fr_1fr]">
+      {/* Painel da marca */}
+      <aside className="relative hidden overflow-hidden bg-[#111318] lg:flex lg:flex-col lg:justify-between p-12 text-white">
+        <div className="absolute -right-40 -top-40 h-[480px] w-[480px] rounded-full bg-[#ea580c]/25 blur-[120px]" />
+        <div className="absolute -bottom-48 -left-24 h-[420px] w-[420px] rounded-full bg-[#ea580c]/10 blur-[120px]" />
+        <img src={logo} alt="Solucell" className="relative h-10 w-auto self-start object-contain" />
+        <div className="relative max-w-md">
+          <h1 className="text-4xl font-semibold leading-tight tracking-tight">Gestão completa da loja em um só lugar.</h1>
+          <p className="mt-4 text-base text-white/60">Vendas, estoque, fiado, ordens de serviço e fechamento de caixa — sincronizados em tempo real.</p>
+          <ul className="mt-8 space-y-3 text-sm text-white/75">
+            {["Caixa e vendas do dia em tempo real", "Controle de estoque com etiquetas e leitor", "Relatórios e fechamento em PDF"].map(t => (
+              <li key={t} className="flex items-center gap-3">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#ea580c]/20 text-[#fb923c]"><Check className="h-3 w-3" strokeWidth={3} /></span>
+                {t}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <p className="relative text-xs text-white/40">© {new Date().getFullYear()} Solucell Gávea</p>
+      </aside>
+
+      {/* Formulário */}
+      <main className="relative flex items-center justify-center p-6">
         <button
           type="button"
           onClick={toggleTheme}
           aria-label="Alternar tema"
-          className="flex items-center justify-center w-9 h-9 rounded-xl border border-slate-800 bg-slate-900 text-slate-400 hover:text-slate-50 transition-colors"
+          className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-lg text-fg-subtle transition-colors hover:bg-hover hover:text-fg"
         >
-          {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          {theme === "dark" ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
         </button>
-      </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-sm p-8 rounded-2xl border border-slate-800 bg-slate-900 shadow-xl"
-      >
-        <div className="flex flex-col items-center text-center mb-8">
-          <img src={logo} alt="Solucell" className="h-9 w-auto object-contain mb-5" />
-          <h2 className="text-slate-50 text-xl font-semibold">Acesse o painel</h2>
-          <p className="text-slate-500 text-sm mt-1">Entre com as credenciais da loja</p>
-        </div>
+        <form onSubmit={handleSubmit} className="w-full max-w-sm">
+          <img src={logo} alt="Solucell" className="mb-10 h-9 w-auto object-contain lg:hidden" />
+          <h2 className="text-2xl font-semibold tracking-tight text-fg">Entrar no painel</h2>
+          <p className="mt-1.5 text-sm text-fg-subtle">Use o e-mail e a senha da loja.</p>
 
-        <div className="space-y-4 mb-6">
-          <label className="block">
-            <span className="block text-xs font-medium text-slate-400 mb-1.5">E-mail</span>
-            <input
-              type="email"
-              placeholder="loja@solucell.com"
-              autoComplete="username"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={isLoading}
-              className="w-full px-3.5 py-2.5 rounded-lg bg-slate-950 text-slate-50 placeholder-slate-600 border border-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition"
-            />
-          </label>
-          <label className="block">
-            <span className="block text-xs font-medium text-slate-400 mb-1.5">Senha</span>
-            <input
-              type="password"
-              placeholder="••••••••"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={isLoading}
-              className="w-full px-3.5 py-2.5 rounded-lg bg-slate-950 text-slate-50 placeholder-slate-600 border border-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition"
-            />
-          </label>
-        </div>
+          <div className="mt-8 space-y-4">
+            <div>
+              <label className="ui-label" htmlFor="email">E-mail</label>
+              <input
+                id="email"
+                type="email"
+                placeholder="loja@solucell.com"
+                autoComplete="username"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={isLoading}
+                className="ui-input h-10"
+              />
+            </div>
+            <div>
+              <label className="ui-label" htmlFor="password">Senha</label>
+              <input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={isLoading}
+                className="ui-input h-10"
+              />
+            </div>
+          </div>
 
-        {error && (
-          <p className="text-red-400 text-sm mb-4 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20">{error}</p>
-        )}
+          {error && (
+            <p className="mt-4 rounded-lg bg-danger-soft px-3 py-2.5 text-sm text-danger">{error}</p>
+          )}
 
-        <button
-          type="submit"
-          disabled={isLoading || !email || !password}
-          className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm shadow-sm shadow-emerald-600/20 transition disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isLoading ? "Entrando..." : "Entrar"}
-        </button>
-      </form>
+          <button
+            type="submit"
+            disabled={isLoading || !email || !password}
+            className="mt-6 flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-primary text-sm font-medium text-white shadow-[var(--ui-shadow)] transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isLoading ? "Entrando..." : "Entrar"}
+          </button>
+        </form>
+      </main>
     </div>
   );
 }

@@ -293,7 +293,7 @@ export default function FiadoScreen({ onGoBack, fiadoSales, onRegisterPayment }:
                         <ArrowLeft className="w-6 h-6" />
                     </button>
                     <div>
-                        <h1 className="text-2xl font-extrabold text-slate-50 flex items-center gap-3 tracking-tight">
+                        <h1 className="text-2xl font-semibold text-slate-50 flex items-center gap-3 tracking-tight">
                             Contas a Receber (Fiado)
                         </h1>
                         <p className="text-slate-400 text-sm mt-1">
@@ -303,7 +303,7 @@ export default function FiadoScreen({ onGoBack, fiadoSales, onRegisterPayment }:
                 </div>
 
                 <div className="p-3 bg-slate-900 border border-slate-800 rounded-md text-right shrink-0 w-full sm:w-auto">
-                    <p className="text-slate-400 text-xs uppercase tracking-wider">
+                    <p className="text-slate-400 text-xs">
                         Total Pendente
                     </p>
                     <p className="text-xl font-bold text-rose-400 mt-0.5">
@@ -332,7 +332,7 @@ export default function FiadoScreen({ onGoBack, fiadoSales, onRegisterPayment }:
                         onClick={() => setStatusFilter("pending")}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
                             statusFilter === "pending" 
-                                ? "bg-rose-600 text-white shadow-lg shadow-rose-500/20" 
+                                ? "bg-rose-600 text-white shadow-lg" 
                                 : "bg-slate-800 text-slate-400 hover:bg-slate-700"
                         }`}
                     >
@@ -342,7 +342,7 @@ export default function FiadoScreen({ onGoBack, fiadoSales, onRegisterPayment }:
                         onClick={() => setStatusFilter("completed")}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
                             statusFilter === "completed" 
-                                ? "bg-emerald-600 text-white shadow-lg shadow-emerald-500/20" 
+                                ? "bg-primary text-white shadow-lg" 
                                 : "bg-slate-800 text-slate-400 hover:bg-slate-700"
                         }`}
                     >
@@ -446,7 +446,7 @@ export default function FiadoScreen({ onGoBack, fiadoSales, onRegisterPayment }:
                                                 <button
                                                     onClick={() => openPaymentModal(sale)}
                                                     disabled={isProcessingPayment}
-                                                    className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-md shadow-emerald-500/20 text-sm font-medium transition whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg shadow-md text-sm font-medium transition whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
                                                     <Wallet className="w-4 h-4" />
                                                     Receber

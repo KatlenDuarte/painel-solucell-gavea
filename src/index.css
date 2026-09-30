@@ -1,33 +1,87 @@
 @import "tailwindcss";
 
 /*
- * TEMA CLARO / ESCURO
- * -------------------
- * As telas usam a escala "slate" como tokens de superfície/texto
- * (950 = fundo da página, 900 = cartões, 800 = bordas/campos, 50..300 = textos).
- * No tema escuro valem as cores padrão do Tailwind; no tema claro a escala é
- * remapeada abaixo, junto com os tons claros/escuros das cores de destaque,
- * para manter contraste. Assim um único conjunto de classes serve aos dois temas.
+ * DESIGN SYSTEM · SOLUCELL
+ * ------------------------
+ * Tokens semânticos (bg, surface, line, fg, primary, success...) definidos
+ * para os temas claro e escuro. Use-os nos componentes: bg-surface, text-fg,
+ * text-fg-muted, border-line, bg-primary, bg-primary-soft, text-primary...
+ *
+ * Compatibilidade: telas/modais antigos usam a escala "slate" como superfície
+ * e texto (950 = fundo, 900 = cartão, 800 = borda, 50..300 = textos). Ela é
+ * remapeada abaixo para os mesmos tokens, então tudo segue o mesmo tema.
  */
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+@theme inline {
+  --color-bg: var(--ui-bg);
+  --color-surface: var(--ui-surface);
+  --color-subtle: var(--ui-subtle);
+  --color-hover: var(--ui-hover);
+  --color-line: var(--ui-line);
+  --color-line-strong: var(--ui-line-strong);
+  --color-fg: var(--ui-fg);
+  --color-fg-muted: var(--ui-fg-muted);
+  --color-fg-subtle: var(--ui-fg-subtle);
+  --color-fg-faint: var(--ui-fg-faint);
+  --color-primary: var(--ui-primary);
+  --color-primary-hover: var(--ui-primary-hover);
+  --color-primary-soft: var(--ui-primary-soft);
+  --color-primary-text: var(--ui-primary-text);
+  --color-success: var(--ui-success);
+  --color-success-soft: var(--ui-success-soft);
+  --color-warning: var(--ui-warning);
+  --color-warning-soft: var(--ui-warning-soft);
+  --color-danger: var(--ui-danger);
+  --color-danger-soft: var(--ui-danger-soft);
+  --color-info: var(--ui-info);
+  --color-info-soft: var(--ui-info-soft);
+}
+
+/* ---------- TEMA CLARO ---------- */
 :root:not(.dark) {
   color-scheme: light;
-  --color-slate-50: #0f172a;
-  --color-slate-100: #1e293b;
-  --color-slate-200: #334155;
-  --color-slate-300: #475569;
-  --color-slate-400: #64748b;
-  --color-slate-500: #7b8798;
-  --color-slate-600: #a3adbb;
-  --color-slate-700: #cfd6df;
-  --color-slate-800: #e6eaf0;
+  --ui-bg: #f5f6f8;
+  --ui-surface: #ffffff;
+  --ui-subtle: #f8f9fa;
+  --ui-hover: #f1f2f4;
+  --ui-line: #e6e8eb;
+  --ui-line-strong: #d4d7dc;
+  --ui-fg: #111318;
+  --ui-fg-muted: #4a4f59;
+  --ui-fg-subtle: #6b717c;
+  --ui-fg-faint: #9aa0a9;
+  --ui-primary: #ea580c;
+  --ui-primary-hover: #c2410c;
+  --ui-primary-soft: rgb(234 88 12 / 0.09);
+  --ui-primary-text: #c2410c;
+  --ui-success: #059669;
+  --ui-success-soft: rgb(5 150 105 / 0.1);
+  --ui-warning: #b45309;
+  --ui-warning-soft: rgb(217 119 6 / 0.12);
+  --ui-danger: #dc2626;
+  --ui-danger-soft: rgb(220 38 38 / 0.09);
+  --ui-info: #2563eb;
+  --ui-info-soft: rgb(37 99 235 / 0.09);
+  --ui-shadow: 0 1px 2px rgb(16 24 40 / 0.05);
+  --ui-shadow-lg: 0 12px 32px -12px rgb(16 24 40 / 0.18);
+
+  --color-slate-50: #111318;
+  --color-slate-100: #1d2027;
+  --color-slate-200: #30343c;
+  --color-slate-300: #4a4f59;
+  --color-slate-400: #6b717c;
+  --color-slate-500: #858b95;
+  --color-slate-600: #a6abb3;
+  --color-slate-700: #d4d7dc;
+  --color-slate-800: #e6e8eb;
   --color-slate-900: #ffffff;
-  --color-slate-950: #f3f5f8;
+  --color-slate-950: #f5f6f8;
 
   --color-red-50: oklch(25.8% 0.092 26.042);
   --color-red-100: oklch(39.6% 0.141 25.723);
@@ -151,18 +205,53 @@
   --color-rose-950: oklch(96.9% 0.015 12.422);
 }
 
+/* ---------- TEMA ESCURO ---------- */
 :root.dark {
   color-scheme: dark;
-  --color-slate-950: #070b14;
-  --color-slate-900: #0f1522;
-  --color-slate-800: #1d2533;
+  --ui-bg: #0c0d10;
+  --ui-surface: #14161a;
+  --ui-subtle: #181a1f;
+  --ui-hover: #1e2127;
+  --ui-line: #25282f;
+  --ui-line-strong: #343842;
+  --ui-fg: #f2f3f5;
+  --ui-fg-muted: #b3b8c1;
+  --ui-fg-subtle: #878d98;
+  --ui-fg-faint: #5d636d;
+  --ui-primary: #f97316;
+  --ui-primary-hover: #fb8a3c;
+  --ui-primary-soft: rgb(249 115 22 / 0.14);
+  --ui-primary-text: #fb923c;
+  --ui-success: #34d399;
+  --ui-success-soft: rgb(52 211 153 / 0.12);
+  --ui-warning: #fbbf24;
+  --ui-warning-soft: rgb(251 191 36 / 0.12);
+  --ui-danger: #f87171;
+  --ui-danger-soft: rgb(248 113 113 / 0.12);
+  --ui-info: #60a5fa;
+  --ui-info-soft: rgb(96 165 250 / 0.12);
+  --ui-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  --ui-shadow-lg: 0 16px 40px -12px rgb(0 0 0 / 0.6);
+
+  --color-slate-50: #f2f3f5;
+  --color-slate-100: #e3e5e9;
+  --color-slate-200: #cfd3d9;
+  --color-slate-300: #b3b8c1;
+  --color-slate-400: #878d98;
+  --color-slate-500: #6b717c;
+  --color-slate-600: #4f545d;
+  --color-slate-700: #343842;
+  --color-slate-800: #25282f;
+  --color-slate-900: #14161a;
+  --color-slate-950: #0c0d10;
 }
 
 html,
 body {
-  background-color: var(--color-slate-950);
-  color: var(--color-slate-300);
+  background-color: var(--ui-bg);
+  color: var(--ui-fg-muted);
   font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
 }
 
@@ -174,26 +263,46 @@ html.theme-transition *::after {
   transition: background-color 200ms ease, border-color 200ms ease, color 150ms ease !important;
 }
 
-/* Sombras mais leves no tema claro (as telas foram desenhadas com sombras para fundo escuro) */
-:root:not(.dark) .shadow-2xl { box-shadow: 0 20px 40px -16px rgb(15 23 42 / 0.18); }
-:root:not(.dark) .shadow-xl { box-shadow: 0 12px 28px -12px rgb(15 23 42 / 0.14); }
-:root:not(.dark) .shadow-lg { box-shadow: 0 6px 18px -8px rgb(15 23 42 / 0.12); }
+/* Sombras discretas (as telas antigas usavam sombras pesadas) */
+.shadow-2xl { box-shadow: var(--ui-shadow-lg) !important; }
+.shadow-xl, .shadow-lg { box-shadow: var(--ui-shadow-lg) !important; }
+.shadow-md, .shadow-sm { box-shadow: var(--ui-shadow) !important; }
+
+@layer components {
+  /* Campos de formulário padrão */
+  .ui-input {
+    @apply w-full h-9 rounded-lg border border-line bg-surface px-3 text-sm text-fg placeholder:text-fg-faint outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15 disabled:opacity-60;
+  }
+  select.ui-input { @apply pr-8 cursor-pointer; }
+  .ui-label { @apply block text-xs font-medium text-fg-muted mb-1.5; }
+
+  /* Tabelas */
+  .ui-table { @apply w-full text-sm border-collapse; }
+  .ui-table thead th {
+    @apply h-10 px-4 text-left text-xs font-medium text-fg-subtle bg-subtle border-b border-line whitespace-nowrap;
+  }
+  .ui-table tbody td { @apply px-4 py-3 border-b border-line text-fg-muted align-middle; }
+  .ui-table tbody tr:last-child td { @apply border-b-0; }
+  .ui-table tbody tr { @apply transition-colors; }
+  .ui-table tbody tr:hover td { @apply bg-hover/60; }
+
+  .tabular { font-variant-numeric: tabular-nums; }
+}
 
 /* Barra de rolagem discreta */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-slate-700) transparent;
+  scrollbar-color: var(--ui-line-strong) transparent;
 }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb {
-  background: var(--color-slate-700);
+  background: var(--ui-line-strong);
   border-radius: 999px;
   border: 3px solid transparent;
   background-clip: content-box;
 }
 ::-webkit-scrollbar-track { background: transparent; }
 
-::selection { background: color-mix(in oklab, var(--color-emerald-500) 30%, transparent); }
+::selection { background: color-mix(in oklab, var(--ui-primary) 25%, transparent); }
 
-/* Inputs de data/hora seguem o tema */
 input[type="date"], input[type="month"], input[type="time"] { color-scheme: inherit; }

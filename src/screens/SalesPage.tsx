@@ -2,10 +2,11 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
     Plus, Search, CreditCard, Smartphone,
-    DollarSign, Undo2,
-    TrendingUp, TrendingDown, Eye, EyeOff,
-    Pencil, Clock, User, Wrench, Layers, Printer
+    DollarSign, Undo2, TrendingUp, Eye, EyeOff,
+    Pencil, User, Wrench, Printer, Receipt, X
 } from "lucide-react";
+import { Page, PageHeader, Card, StatCard, Button, IconButton, Badge, Segmented, SearchInput, EmptyState, LoadingState } from "../components/ui";
+import { formatBRL } from "../lib/format";
 
 import { useStoreData } from "../contexts/StoreDataContext";
 
@@ -306,20 +307,20 @@ export default function Sales({ storeEmail }: SalesProps) {
 
     const todayLabel = new Date().toLocaleDateString("pt-BR");
 
-    const methodPct = (value: number) =>
-        stats.total > 0 ? Math.min(100, (value / stats.total) * 100) : 0;
+    const money = (v: number) => (hideValues ? "R$ ••••" : formatBRL(v));
 
-    const dotClasses = (sale: SaleWithClient) => {
-        if (isLoss(sale)) return "bg-red-500 ring-red-500/30";
-        if (sale.status === "refunded") return "bg-red-300 ring-red-500/30";
-        if (sale.status === "cancelled") return "bg-slate-700 ring-slate-800";
-        if (sale.status === "pending") return "bg-amber-400 ring-amber-500/30";
-        return "bg-emerald-500 ring-emerald-500/30";
+    const periodLabel = filter === "today" ? "hoje" : filter === "week" ? "nos últimos 7 dias" : filter === "month" ? "neste mês" : "na data selecionada";
+
+    const statusBadge = (sale: SaleWithClient) => {
+        if (isLoss(sale)) return <Badge tone="danger" dot>Perda</Badge>;
+        if (sale.status === "refunded") return <Badge tone="danger" dot>Estornada</Badge>;
+        if (sale.status === "cancelled") return <Badge dot>Cancelada</Badge>;
+        if (sale.status === "pending") return <Badge tone="warning" dot>Fiado pendente</Badge>;
+        return <Badge tone="success" dot>Concluída</Badge>;
     };
 
     return (
-        <div className="text-slate-300 p-4 md:p-8 font-sans antialiased relative overflow-x-hidden">
-
+        <Page>
             <RefundConfirmationModal
                 saleId={refundSaleId}
                 onClose={() => {
@@ -349,374 +350,194 @@ export default function Sales({ storeEmail }: SalesProps) {
                 onSave={fetchSalesFromFirestore}
             />
 
-            <div className="max-w-7xl mx-auto space-y-6 relative z-10">
+            <input
+                ref={barcodeRef}
+                autoFocus
+                value={barcodeInput}
+                onChange={(e) => setBarcodeInput(e.target.value)}
+                className="absolute opacity-0 pointer-events-none"
+                type="text"
+            />
 
-                {/* HEADER ENXUTO */}
-                <header className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-                    <div>
-                        <div className="flex items-center gap-2 mb-1.5">
-                            <span className="bg-emerald-500/10 text-emerald-400 text-[9px] font-black px-2.5 py-0.5 rounded-full border border-emerald-500/30 uppercase tracking-widest">
-                                Painel Operacional
-                            </span>
-                        </div>
-                        <h1 className="text-2xl md:text-3xl font-black italic text-slate-50 tracking-tight">
-                            FLUXO DE <span className="text-emerald-400">CAIXA</span>
-                            <span className="text-emerald-400">.</span>
-                        </h1>
-                    </div>
+            <PageHeader
+                title="Vendas"
+                description="Acompanhe o caixa, filtre por forma de pagamento e gerencie cada operação."
+                actions={
+                    <>
+                        <Button icon={hideValues ? EyeOff : Eye} onClick={() => setHideValues(!hideValues)}>
+                            {hideValues ? "Mostrar valores" : "Ocultar valores"}
+                        </Button>
+                        <Button variant="primary" icon={Plus} onClick={() => setIsNewSaleModal(true)}>
+                            Nova venda
+                        </Button>
+                    </>
+                }
+            />
 
-                    <div className="flex items-center gap-3">
-                        <button
-                            onClick={() => setHideValues(!hideValues)}
-                            className="flex items-center gap-2 bg-slate-900 hover:bg-slate-950 border border-slate-800 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-400 shadow-sm transition-all active:scale-[0.97]"
-                        >
-                            {hideValues ? <EyeOff size={14} /> : <Eye size={14} />}
-                            <span className="hidden sm:inline">{hideValues ? "Mostrar Valores" : "Ocultar Valores"}</span>
-                        </button>
-
-                        <button
-                            onClick={() => setIsNewSaleModal(true)}
-                            className="px-4 py-2 bg-emerald-600 text-white rounded-xl font-bold text-xs hover:bg-emerald-500 flex items-center gap-1.5 transition-all active:scale-[0.97] shadow-md shadow-emerald-600/20"
-                        >
-                            <Plus size={16} strokeWidth={2.5} /> Nova Operação
-                        </button>
-                    </div>
-                </header>
-
-                <input
-                    ref={barcodeRef}
-                    autoFocus
-                    value={barcodeInput}
-                    onChange={(e) => setBarcodeInput(e.target.value)}
-                    className="absolute opacity-0 pointer-events-none"
-                    type="text"
+            {/* Resumo por forma de pagamento (clique para filtrar) */}
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+                <StatCard
+                    label="Faturamento"
+                    value={money(stats.total)}
+                    icon={TrendingUp}
+                    tone="primary"
+                    active={selectedMethodCard === null}
+                    onClick={() => setSelectedMethodCard(null)}
+                    hint={losses > 0 ? `${money(losses)} em perdas ${periodLabel}` : `${filteredByPeriod.length} operações ${periodLabel}`}
                 />
+                <StatCard label="PIX" value={money(stats.pix)} icon={Smartphone} tone="success"
+                    active={selectedMethodCard === "PIX"} onClick={() => handleCardClick("PIX")}
+                    hint={stats.total ? `${Math.round((stats.pix / stats.total) * 100)}% do total` : "—"} />
+                <StatCard label="Cartão" value={money(stats.cartao)} icon={CreditCard} tone="info"
+                    active={selectedMethodCard === "CARTAO"} onClick={() => handleCardClick("CARTAO")}
+                    hint={stats.total ? `${Math.round((stats.cartao / stats.total) * 100)}% do total` : "—"} />
+                <StatCard label="Dinheiro" value={money(stats.dinheiro)} icon={DollarSign} tone="warning"
+                    active={selectedMethodCard === "DINHEIRO"} onClick={() => handleCardClick("DINHEIRO")}
+                    hint={stats.total ? `${Math.round((stats.dinheiro / stats.total) * 100)}% do total` : "—"} />
+            </div>
 
-                {/* LAYOUT PRINCIPAL: PAINEL LATERAL (EXTRATO) + LINHA DO TEMPO */}
-                <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6 items-start">
-
-                    {/* ===== COLUNA ESQUERDA — RESUMO FIXO ===== */}
-                    <aside className="space-y-4 lg:sticky lg:top-6">
-
-                        {/* HERO DE FATURAMENTO */}
-                        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-sm relative overflow-hidden">
-                            <div className="absolute -right-6 -top-6 text-emerald-500/[0.06]">
-                                <TrendingUp size={110} />
-                            </div>
-
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5 relative">
-                                {filter === "today" ? "Faturamento de Hoje" : filter === "week" ? "Faturamento da Semana" : filter === "month" ? "Faturamento do Mês" : "Faturamento do Período"}
-                            </p>
-                            <p className="text-4xl font-black tracking-tight text-slate-50 font-mono relative">
-                                {hideValues ? "••••••" : `R$ ${stats.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                            </p>
-
-                            {losses > 0 && (
-                                <p className="mt-1.5 text-[11px] font-bold text-red-500 flex items-center gap-1 relative">
-                                    <TrendingDown size={12} />
-                                    {hideValues ? "••••" : `R$ ${losses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} em prejuízos
-                                </p>
-                            )}
-
-                            {/* SELETOR DE PERÍODO — pílulas */}
-                            <div className="mt-5 grid grid-cols-4 gap-1 bg-slate-800 p-1 rounded-full relative">
-                                {(["today", "week", "month", "custom"] as const).map((f) => (
-                                    <button
-                                        key={f}
-                                        onClick={() => {
-                                            setFilter(f);
-                                            setSelectedMethodCard(null);
-                                        }}
-                                        className={`py-1.5 rounded-full text-[9px] font-black uppercase transition-all ${filter === f
-                                            ? "bg-slate-900 text-slate-50 shadow-sm"
-                                            : "text-slate-500 hover:text-slate-300"
-                                            }`}
-                                    >
-                                        {f === "today" ? "Hoje" : f === "week" ? "7 dias" : f === "month" ? "Mês" : "Data"}
-                                    </button>
-                                ))}
-                            </div>
-
-                            {filter === "custom" && (
-                                <input
-                                    type="date"
-                                    value={customDate}
-                                    onChange={(e) => {
-                                        setCustomDate(e.target.value);
-                                        setSelectedMethodCard(null);
-                                    }}
-                                    className="mt-2 w-full bg-slate-950 text-slate-200 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-emerald-400 transition-colors relative"
-                                />
-                            )}
-                        </div>
-
-                        {/* QUEBRA POR FORMA DE PAGAMENTO */}
-                        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-sm space-y-1">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-1 mb-2">
-                                Formas de Recebimento
-                            </p>
-
-                            {/* PIX */}
-                            <button
-                                onClick={() => handleCardClick("PIX")}
-                                className={`w-full text-left rounded-xl p-2.5 transition-all ${selectedMethodCard === "PIX" ? "bg-emerald-500/10 ring-1 ring-emerald-500/30" : "hover:bg-slate-950"
-                                    }`}
-                            >
-                                <div className="flex items-center justify-between mb-1.5">
-                                    <div className="flex items-center gap-2">
-                                        <Smartphone size={13} className="text-emerald-500" />
-                                        <span className="text-xs font-bold text-slate-300">PIX</span>
-                                    </div>
-                                    <span className="text-xs font-black font-mono text-slate-50">
-                                        {hideValues ? "••••" : `R$ ${stats.pix.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                                    </span>
-                                </div>
-                                <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
-                                    <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${methodPct(stats.pix)}%` }} />
-                                </div>
-                            </button>
-
-                            {/* CARTÃO */}
-                            <button
-                                onClick={() => handleCardClick("CARTAO")}
-                                className={`w-full text-left rounded-xl p-2.5 transition-all ${selectedMethodCard === "CARTAO" ? "bg-blue-500/10 ring-1 ring-blue-500/30" : "hover:bg-slate-950"
-                                    }`}
-                            >
-                                <div className="flex items-center justify-between mb-1.5">
-                                    <div className="flex items-center gap-2">
-                                        <CreditCard size={13} className="text-blue-500" />
-                                        <span className="text-xs font-bold text-slate-300">Cartão</span>
-                                    </div>
-                                    <span className="text-xs font-black font-mono text-slate-50">
-                                        {hideValues ? "••••" : `R$ ${stats.cartao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                                    </span>
-                                </div>
-                                <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
-                                    <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${methodPct(stats.cartao)}%` }} />
-                                </div>
-                            </button>
-
-                            {/* DINHEIRO */}
-                            <button
-                                onClick={() => handleCardClick("DINHEIRO")}
-                                className={`w-full text-left rounded-xl p-2.5 transition-all ${selectedMethodCard === "DINHEIRO" ? "bg-amber-500/10 ring-1 ring-amber-500/30" : "hover:bg-slate-950"
-                                    }`}
-                            >
-                                <div className="flex items-center justify-between mb-1.5">
-                                    <div className="flex items-center gap-2">
-                                        <DollarSign size={13} className="text-amber-500" />
-                                        <span className="text-xs font-bold text-slate-300">Dinheiro</span>
-                                    </div>
-                                    <span className="text-xs font-black font-mono text-slate-50">
-                                        {hideValues ? "••••" : `R$ ${stats.dinheiro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                                    </span>
-                                </div>
-                                <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
-                                    <div className="h-full rounded-full bg-amber-500 transition-all" style={{ width: `${methodPct(stats.dinheiro)}%` }} />
-                                </div>
-                            </button>
-
-                            {selectedMethodCard && (
-                                <button
-                                    onClick={() => setSelectedMethodCard(null)}
-                                    className="w-full text-center mt-1 py-1.5 text-[9px] text-emerald-400 hover:text-emerald-400 uppercase font-black tracking-wider"
-                                >
-                                    [ Limpar Filtro ]
-                                </button>
-                            )}
-                        </div>
-
-                        {/* BUSCA */}
-                        <div className="relative w-full">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+            <Card padded={false} className="overflow-hidden">
+                {/* Barra de filtros */}
+                <div className="flex flex-col gap-3 border-b border-line p-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Segmented
+                            value={filter}
+                            onChange={(f) => { setFilter(f); setSelectedMethodCard(null); }}
+                            options={[
+                                { value: "today", label: "Hoje" },
+                                { value: "week", label: "7 dias" },
+                                { value: "month", label: "Mês" },
+                                { value: "custom", label: "Data" },
+                            ]}
+                        />
+                        {filter === "custom" && (
                             <input
-                                type="text"
-                                placeholder="Buscar item ou cliente..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-3 pl-11 pr-4 text-xs text-slate-50 placeholder-slate-500 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10 shadow-sm transition-all"
+                                type="date"
+                                value={customDate}
+                                onChange={(e) => { setCustomDate(e.target.value); setSelectedMethodCard(null); }}
+                                className="ui-input w-[170px]"
                             />
-                        </div>
-                    </aside>
-
-                    {/* ===== COLUNA DIREITA — EXTRATO EM LINHA DO TEMPO ===== */}
-                    <div className="min-w-0">
-                        {isLoading ? (
-                            <div className="py-24 text-center border border-dashed border-slate-700 bg-slate-900/60 rounded-3xl text-slate-500 font-bold animate-pulse uppercase text-[10px] tracking-widest">
-                                Sincronizando fluxo de caixa...
-                            </div>
-                        ) : finalFilteredSales.length === 0 ? (
-                            <div className="bg-slate-900 border border-dashed border-slate-700 rounded-3xl p-20 text-center text-slate-500 font-bold text-sm">
-                                Nenhuma operação encontrada para os filtros aplicados.
-                            </div>
-                        ) : (
-                            <div className="space-y-8">
-                                {Object.entries(groupedSales).map(([dateKey, salesForDate]) => (
-                                    <div key={dateKey}>
-                                        {/* CABEÇALHO DO DIA */}
-                                        <div className="flex items-center gap-3 mb-4">
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 whitespace-nowrap">
-                                                {dateKey === todayLabel ? "Hoje" : dateKey}
-                                            </span>
-                                            <div className="flex-1 h-px bg-slate-800" />
-                                            <span className="text-[10px] font-bold text-slate-700 whitespace-nowrap">
-                                                {salesForDate.length} {salesForDate.length === 1 ? "operação" : "operações"}
-                                            </span>
-                                        </div>
-
-                                        {/* LINHA DO TEMPO */}
-                                        <div className="relative border-l-2 border-slate-800 ml-1.5 space-y-3">
-                                            {salesForDate.map((sale) => {
-                                                const isRefunded = sale.status === "refunded";
-                                                const isCancelled = sale.status === "cancelled";
-                                                const isLossSale = isLoss(sale);
-                                                const partCost = sale.partCost || 0;
-                                                const profit = sale.total - partCost;
-
-                                                return (
-                                                    <div key={sale.id} className="relative pl-6">
-                                                        {/* MARCADOR NA LINHA DO TEMPO */}
-                                                        <span className={`absolute -left-[7px] top-5 w-3 h-3 rounded-full ring-4 ${dotClasses(sale)}`} />
-
-                                                        <div
-                                                            className={`rounded-2xl border p-4 transition-shadow ${isLossSale
-                                                                    ? "bg-red-500/10 border-red-500/30"
-                                                                    : isRefunded
-                                                                        ? "bg-red-500/10 border-red-500/30 opacity-80"
-                                                                        : isCancelled
-                                                                            ? "bg-slate-950/60 border-slate-800 opacity-60"
-                                                                            : "bg-slate-900 border-slate-800 shadow-sm hover:shadow-md"
-                                                                }`}
-                                                        >
-                                                            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
-
-                                                                {/* CONTEÚDO PRINCIPAL */}
-                                                                <div className="min-w-0 flex-1">
-                                                                    <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
-                                                                        <span className="text-[10px] font-bold text-slate-500 font-mono flex items-center gap-1">
-                                                                            <Clock size={10} /> {sale.time}
-                                                                        </span>
-
-                                                                        {sale.type === "manutencao" && (
-                                                                            <span className="px-2 py-0.5 bg-blue-500/10 border border-blue-500/30 text-blue-400 text-[9px] font-black rounded-full uppercase tracking-wider flex items-center gap-1">
-                                                                                <Wrench size={9} /> Manutenção
-                                                                            </span>
-                                                                        )}
-                                                                        {isLossSale && (
-                                                                            <span className="px-2 py-0.5 bg-red-600 text-white text-[9px] font-black rounded-full uppercase tracking-wider flex items-center gap-1">
-                                                                                <TrendingDown size={9} /> Prejuízo
-                                                                            </span>
-                                                                        )}
-                                                                        {isRefunded && <span className="px-2 py-0.5 bg-red-500/10 border border-red-500/30 text-red-500 text-[9px] font-black rounded-full uppercase tracking-wider">Reembolsado</span>}
-                                                                        {isCancelled && <span className="px-2 py-0.5 bg-slate-800 text-slate-500 text-[9px] font-black rounded-full uppercase tracking-wider">Cancelado</span>}
-                                                                        {sale.status === "pending" && <span className="px-2 py-0.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[9px] font-black rounded-full uppercase tracking-wider">Fiado Pendente</span>}
-                                                                    </div>
-
-                                                                    <h3 className={`text-sm font-bold tracking-tight truncate ${isRefunded || isCancelled ? "line-through text-slate-500" : "text-slate-50"}`}>
-                                                                        {sale.items.map((item, idx) => (
-                                                                            <span key={idx}>
-                                                                                <span className="text-emerald-400 font-bold mr-1">{item.saleQty}x</span>
-                                                                                {item.name}
-                                                                                {idx < sale.items.length - 1 ? ", " : ""}
-                                                                            </span>
-                                                                        ))}
-                                                                    </h3>
-
-                                                                    {sale.clientName && (
-                                                                        <p className="text-[11px] text-slate-500 font-bold mt-0.5 flex items-center gap-1">
-                                                                            <User size={10} /> {sale.clientName}
-                                                                        </p>
-                                                                    )}
-
-                                                                    {sale.type === "manutencao" && !isRefunded && !isCancelled && !isLossSale && (
-                                                                        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-bold">
-                                                                            <span className="text-red-500">Peça: {hideValues ? "•••" : `R$ ${partCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}</span>
-                                                                            <span className="text-emerald-400">Lucro: {hideValues ? "•••" : `R$ ${profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}</span>
-                                                                        </div>
-                                                                    )}
-
-                                                                    {isLossSale && (
-                                                                        <p className="mt-2 text-[11px] font-bold text-red-500">
-                                                                            Prejuízo assumido nesta operação.
-                                                                        </p>
-                                                                    )}
-                                                                </div>
-
-                                                                {/* VALOR + PAGAMENTO + AÇÕES */}
-                                                                <div className="flex flex-row md:flex-col items-end justify-between md:justify-start gap-2 shrink-0 md:text-right md:min-w-[130px]">
-                                                                    <div>
-                                                                        <p className={`text-lg font-black font-mono tracking-tight ${isLossSale
-                                                                                ? "text-red-400"
-                                                                                : isRefunded || isCancelled
-                                                                                    ? "line-through text-slate-500"
-                                                                                    : "text-slate-50"
-                                                                            }`}>
-                                                                            {hideValues ? "•••••" : `R$ ${sale.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                                                                        </p>
-
-                                                                        {sale.multiplePayments && sale.multiplePayments.length > 0 ? (
-                                                                            <div className="flex flex-wrap gap-1 justify-end mt-1">
-                                                                                {sale.multiplePayments.map((p, pIdx) => (
-                                                                                    <span key={pIdx} className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-400 uppercase">
-                                                                                        {p.method}
-                                                                                    </span>
-                                                                                ))}
-                                                                            </div>
-                                                                        ) : (
-                                                                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-slate-950 border border-slate-800 text-slate-400 uppercase inline-block mt-1">
-                                                                                {sale.payment}
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-
-                                                                    {!isRefunded && !isCancelled && (
-                                                                        <div className="flex items-center gap-1.5">
-                                                                            <button
-                                                                                onClick={() => {
-                                                                                    setSaleToEdit(sale);
-                                                                                    setIsEditModalOpen(true);
-                                                                                }}
-                                                                                title="Editar"
-                                                                                className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-950 hover:bg-slate-800 text-slate-500 hover:text-slate-50 border border-slate-800 transition-colors"
-                                                                            >
-                                                                                <Pencil size={12} />
-                                                                            </button>
-
-                                                                            <button
-                                                                                onClick={() => {
-                                                                                    setRefundSaleId(sale.id);
-                                                                                    setIsModalOpen(true);
-                                                                                }}
-                                                                                title="Estornar"
-                                                                                className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-950 hover:bg-rose-500/10 text-slate-500 hover:text-rose-400 border border-slate-800 hover:border-rose-500/30 transition-colors"
-                                                                            >
-                                                                                <Undo2 size={12} />
-                                                                            </button>
-
-                                                                            <button
-                                                                                onClick={() => handlePrintSale(sale)}
-                                                                                title="Imprimir Cupom"
-                                                                                className="w-7 h-7 flex items-center justify-center rounded-lg bg-emerald-500/10 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 transition-colors"
-                                                                            >
-                                                                                <Printer size={12} />
-                                                                            </button>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                        )}
+                        {selectedMethodCard && (
+                            <Badge tone="primary">
+                                Filtro: {selectedMethodCard === "CARTAO" ? "Cartão" : selectedMethodCard === "DINHEIRO" ? "Dinheiro" : "PIX"}
+                                <button onClick={() => setSelectedMethodCard(null)} className="ml-1 hover:opacity-70" aria-label="Limpar filtro">
+                                    <X size={12} />
+                                </button>
+                            </Badge>
                         )}
                     </div>
+                    <SearchInput icon={Search} value={searchTerm} onChange={setSearchTerm} placeholder="Buscar item ou cliente..." className="w-full lg:w-72" />
                 </div>
 
-            </div>
-        </div>
+                {isLoading ? (
+                    <LoadingState label="Carregando vendas..." />
+                ) : finalFilteredSales.length === 0 ? (
+                    <EmptyState
+                        icon={Receipt}
+                        title="Nenhuma venda encontrada"
+                        description={searchTerm || selectedMethodCard ? "Ajuste a busca ou os filtros para ver mais resultados." : `Não há operações registradas ${periodLabel}.`}
+                        action={<Button variant="primary" icon={Plus} onClick={() => setIsNewSaleModal(true)}>Registrar venda</Button>}
+                    />
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="ui-table min-w-[820px]">
+                            <thead>
+                                <tr>
+                                    <th className="w-20">Hora</th>
+                                    <th>Itens</th>
+                                    <th>Pagamento</th>
+                                    <th>Status</th>
+                                    <th className="!text-right">Valor</th>
+                                    <th className="w-28 !text-right">Ações</th>
+                                </tr>
+                            </thead>
+                            {Object.entries(groupedSales).map(([dateKey, salesForDate]) => {
+                                const dayTotal = salesForDate
+                                    .filter(s => s.status !== "refunded" && s.status !== "cancelled" && !isLoss(s))
+                                    .reduce((acc, s) => acc + s.total, 0);
+                                return (
+                                    <tbody key={dateKey}>
+                                        <tr>
+                                            <td colSpan={6} className="!py-2 bg-subtle">
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <span className="font-semibold text-fg">{dateKey === todayLabel ? `Hoje · ${dateKey}` : dateKey}</span>
+                                                    <span className="text-fg-subtle">
+                                                        {salesForDate.length} {salesForDate.length === 1 ? "operação" : "operações"} · <span className="font-medium text-fg tabular">{money(dayTotal)}</span>
+                                                    </span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {salesForDate.map((sale) => {
+                                            const isRefunded = sale.status === "refunded";
+                                            const isCancelled = sale.status === "cancelled";
+                                            const isLossSale = isLoss(sale);
+                                            const inactive = isRefunded || isCancelled;
+                                            const partCost = sale.partCost || 0;
+                                            const profit = sale.total - partCost;
+
+                                            return (
+                                                <tr key={sale.id} className={inactive ? "opacity-60" : ""}>
+                                                    <td className="tabular text-fg-subtle">{sale.time}</td>
+                                                    <td className="max-w-[420px]">
+                                                        <div className="flex items-center gap-2">
+                                                            {sale.type === "manutencao" && (
+                                                                <span title="Manutenção" className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-info-soft text-info">
+                                                                    <Wrench size={12} />
+                                                                </span>
+                                                            )}
+                                                            <p className={`truncate ${inactive ? "line-through" : "text-fg"}`}>
+                                                                {sale.items.map((item, idx) => (
+                                                                    <span key={idx}>
+                                                                        <span className="text-fg-subtle">{item.saleQty}×</span> {item.name}
+                                                                        {idx < sale.items.length - 1 ? ", " : ""}
+                                                                    </span>
+                                                                ))}
+                                                            </p>
+                                                        </div>
+                                                        {(sale.clientName || (sale.type === "manutencao" && !inactive && !isLossSale)) && (
+                                                            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-fg-subtle">
+                                                                {sale.clientName && <span className="inline-flex items-center gap-1"><User size={11} /> {sale.clientName}</span>}
+                                                                {sale.type === "manutencao" && !inactive && !isLossSale && (
+                                                                    <span>Peça {money(partCost)} · <span className="text-success">lucro {money(profit)}</span></span>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td>
+                                                        {sale.multiplePayments && sale.multiplePayments.length > 0 ? (
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {sale.multiplePayments.map((p, pIdx) => (
+                                                                    <Badge key={pIdx}>{p.method.charAt(0) + p.method.slice(1).toLowerCase()} {hideValues ? "" : formatBRL(p.value)}</Badge>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <Badge>{sale.payment}</Badge>
+                                                        )}
+                                                    </td>
+                                                    <td>{statusBadge(sale)}</td>
+                                                    <td className={`text-right font-semibold tabular whitespace-nowrap ${isLossSale ? "text-danger" : inactive ? "line-through" : "text-fg"}`}>
+                                                        {isLossSale ? "− " : ""}{money(sale.total)}
+                                                    </td>
+                                                    <td>
+                                                        {!inactive && (
+                                                            <div className="flex items-center justify-end gap-0.5">
+                                                                <IconButton icon={Printer} label="Imprimir cupom" tone="primary" onClick={() => handlePrintSale(sale)} />
+                                                                <IconButton icon={Pencil} label="Editar" onClick={() => { setSaleToEdit(sale); setIsEditModalOpen(true); }} />
+                                                                <IconButton icon={Undo2} label="Estornar" tone="danger" onClick={() => { setRefundSaleId(sale.id); setIsModalOpen(true); }} />
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                );
+                            })}
+                        </table>
+                    </div>
+                )}
+            </Card>
+        </Page>
     );
 }

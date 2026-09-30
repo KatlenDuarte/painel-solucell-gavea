@@ -128,7 +128,7 @@ export default function QuitarFiadoModal({
                 <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
 
                     <div>
-                        <h2 className="text-lg font-black text-slate-50">
+                        <h2 className="text-lg font-semibold text-slate-50">
                             Quitar Fiado
                         </h2>
 
@@ -152,7 +152,7 @@ export default function QuitarFiadoModal({
 
                     <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
 
-                        <p className="text-[10px] uppercase tracking-widest text-slate-500 font-black">
+                        <p className="text-xs text-slate-500 font-semibold">
                             Cliente
                         </p>
 
@@ -162,11 +162,11 @@ export default function QuitarFiadoModal({
 
                         <div className="mt-4">
 
-                            <p className="text-[10px] uppercase tracking-widest text-slate-500 font-black">
+                            <p className="text-xs text-slate-500 font-semibold">
                                 Valor do Fiado
                             </p>
 
-                            <p className="text-2xl font-black text-emerald-400 mt-1">
+                            <p className="text-2xl font-semibold text-emerald-400 mt-1">
                                 R$ {total.toFixed(2)}
                             </p>
 
@@ -178,7 +178,7 @@ export default function QuitarFiadoModal({
 
                     <div>
 
-                        <p className="text-xs font-black text-slate-400 uppercase mb-3">
+                        <p className="text-xs font-semibold text-slate-400 mb-3">
                             Forma de pagamento
                         </p>
 
@@ -333,7 +333,7 @@ export default function QuitarFiadoModal({
                     <button
                         disabled={!canSave || loading}
                         onClick={handleConfirm}
-                        className="flex-1 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 rounded-xl py-3 text-sm font-bold text-white"
+                        className="flex-1 bg-primary hover:bg-primary-hover disabled:opacity-50 rounded-xl py-3 text-sm font-bold text-white"
                     >
                         {loading
                             ? "Salvando..."

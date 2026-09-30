@@ -14,6 +14,7 @@ import {
     LogOut,
     Sun,
     Moon,
+    ChevronRight,
     type LucideIcon,
 } from "lucide-react";
 
@@ -98,9 +99,9 @@ function ThemeToggle() {
             onClick={toggleTheme}
             title={isDark ? "Mudar para tema claro" : "Mudar para tema escuro"}
             aria-label={isDark ? "Mudar para tema claro" : "Mudar para tema escuro"}
-            className="relative flex items-center justify-center w-9 h-9 rounded-xl border border-slate-800 bg-slate-900 text-slate-400 hover:text-slate-50 hover:border-slate-700 transition-colors"
+            className="flex items-center justify-center w-9 h-9 rounded-lg text-fg-subtle hover:text-fg hover:bg-hover transition-colors"
         >
-            {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            {isDark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
         </button>
     );
 }
@@ -170,6 +171,7 @@ function App() {
         .filter(section => section.items.length > 0);
 
     const currentNav = ALL_NAV_ITEMS.find(item => item.id === currentPage);
+    const currentSection = NAV_SECTIONS.find(section => section.items.some(item => item.id === currentPage))?.title || "Painel";
     const userName = currentUser.email.split("@")[0];
     const todayRaw = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
     const today = todayRaw.charAt(0).toUpperCase() + todayRaw.slice(1);
@@ -197,45 +199,56 @@ function App() {
 
     return (
         <StoreDataProvider storeEmail={currentUser.storeEmail}>
-            <div className="relative flex w-full min-h-screen bg-slate-950 text-slate-300 font-sans antialiased overflow-x-hidden">
+            <div className="relative flex w-full min-h-screen bg-bg text-fg-muted font-sans antialiased overflow-x-hidden">
 
                 {/* OVERLAY MOBILE */}
                 {sidebarOpen && (
                     <div
-                        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden"
+                        className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-40 lg:hidden"
                         onClick={() => setSidebarOpen(false)}
                     />
                 )}
 
                 {/* SIDEBAR */}
-                <aside className={`fixed inset-y-0 left-0 w-64 bg-slate-900 border-r border-slate-800 flex flex-col z-50 transition-transform duration-300 ease-in-out
+                <aside className={`fixed inset-y-0 left-0 w-[248px] bg-surface border-r border-line flex flex-col z-50 transition-transform duration-300 ease-in-out
                     ${sidebarOpen ? "translate-x-0 shadow-2xl lg:shadow-none" : "-translate-x-full lg:translate-x-0"}`}>
 
                     {/* Marca */}
-                    <div className="h-16 px-5 flex items-center justify-between border-b border-slate-800 shrink-0">
-                        <div className="flex items-center gap-3">
-                            <img src={logo} className="h-7 w-auto object-contain" alt="Logo Solucell" />
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 border-l border-slate-800 pl-3">
+                    <div className="h-16 px-4 flex items-center justify-between shrink-0">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                            <img src={logo} className="h-7 w-auto object-contain" alt="Solucell" />
+                            <span className="rounded-md bg-subtle border border-line px-1.5 py-0.5 text-[11px] font-medium text-fg-subtle">
                                 Gávea
                             </span>
                         </div>
                         <button
                             onClick={() => setSidebarOpen(false)}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-50 hover:bg-slate-800 lg:hidden transition-colors"
+                            className="p-1.5 rounded-lg text-fg-subtle hover:text-fg hover:bg-hover lg:hidden transition-colors"
                             aria-label="Fechar menu"
                         >
                             <X className="w-5 h-5" />
                         </button>
                     </div>
 
+                    {/* Ação principal */}
+                    <div className="px-3 pb-2">
+                        <button
+                            onClick={() => { setIsNewSaleModalOpen(true); if (window.innerWidth < 1024) setSidebarOpen(false); }}
+                            className="w-full flex items-center justify-center gap-2 h-9 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-medium transition-colors shadow-[var(--ui-shadow)]"
+                        >
+                            <Plus className="w-4 h-4" strokeWidth={2.5} />
+                            Nova operação
+                        </button>
+                    </div>
+
                     {/* Navegação */}
-                    <nav className="flex-1 overflow-y-auto px-3 py-5 space-y-6">
+                    <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-5">
                         {navSections.map(section => (
                             <div key={section.title}>
-                                <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                                <p className="px-2.5 mb-1 text-[11px] font-medium text-fg-faint">
                                     {section.title}
                                 </p>
-                                <div className="space-y-0.5">
+                                <div className="space-y-px">
                                     {section.items.map(item => {
                                         const Icon = item.icon;
                                         const active = currentPage === item.id;
@@ -244,13 +257,12 @@ function App() {
                                                 key={item.id}
                                                 onClick={() => handleNavigation(item.id)}
                                                 aria-current={active ? "page" : undefined}
-                                                className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-colors group ${active
-                                                    ? "bg-emerald-500/10 text-emerald-400"
-                                                    : "text-slate-400 hover:text-slate-50 hover:bg-slate-800/60"
+                                                className={`w-full flex items-center gap-2.5 px-2.5 h-9 rounded-lg text-sm transition-colors ${active
+                                                    ? "bg-hover text-fg font-medium"
+                                                    : "text-fg-subtle hover:text-fg hover:bg-hover/70"
                                                     }`}
                                             >
-                                                {active && <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full bg-emerald-500" />}
-                                                <Icon className={`w-[18px] h-[18px] ${active ? "text-emerald-400" : "text-slate-500 group-hover:text-slate-300"}`} />
+                                                <Icon className={`w-[18px] h-[18px] ${active ? "text-primary" : ""}`} strokeWidth={active ? 2.2 : 1.8} />
                                                 <span>{item.name}</span>
                                             </button>
                                         );
@@ -261,22 +273,22 @@ function App() {
                     </nav>
 
                     {/* Perfil & Logout */}
-                    <div className="p-3 border-t border-slate-800 shrink-0">
-                        <div className="flex items-center gap-3 p-2 rounded-xl">
-                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center text-sm font-bold uppercase shrink-0">
+                    <div className="p-3 border-t border-line shrink-0">
+                        <div className="flex items-center gap-2.5 p-1.5">
+                            <div className="w-8 h-8 rounded-full bg-primary-soft text-primary-text flex items-center justify-center text-sm font-semibold uppercase shrink-0">
                                 {userName.charAt(0)}
                             </div>
                             <div className="min-w-0 flex-1">
-                                <p className="text-sm font-semibold text-slate-50 truncate capitalize" title={currentUser.email}>
+                                <p className="text-sm font-medium text-fg truncate capitalize" title={currentUser.email}>
                                     {userName}
                                 </p>
-                                <p className="text-[11px] text-slate-500 truncate">{currentUser.role}</p>
+                                <p className="text-xs text-fg-subtle truncate">{currentUser.role}</p>
                             </div>
                             <button
                                 onClick={handleLogout}
                                 title="Sair do sistema"
                                 aria-label="Sair do sistema"
-                                className="p-2 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                                className="p-2 rounded-lg text-fg-subtle hover:text-danger hover:bg-danger-soft transition-colors"
                             >
                                 <LogOut className="w-4 h-4" />
                             </button>
@@ -285,31 +297,31 @@ function App() {
                 </aside>
 
                 {/* ÁREA PRINCIPAL */}
-                <main className="relative flex-1 flex flex-col min-h-screen w-full min-w-0 lg:pl-64">
-                    <header className="sticky top-0 z-30 h-16 shrink-0 flex items-center gap-3 px-4 md:px-8 bg-slate-950/80 backdrop-blur-md border-b border-slate-800">
+                <main className="relative flex-1 flex flex-col min-h-screen w-full min-w-0 lg:pl-[248px]">
+                    <header className="sticky top-0 z-30 h-14 shrink-0 flex items-center gap-3 px-4 md:px-8 bg-bg/85 backdrop-blur-md border-b border-line">
                         <button
                             onClick={() => setSidebarOpen(!sidebarOpen)}
-                            className="p-2 -ml-2 rounded-lg text-slate-400 hover:text-slate-50 hover:bg-slate-800 transition-colors lg:hidden"
+                            className="p-2 -ml-2 rounded-lg text-fg-subtle hover:text-fg hover:bg-hover transition-colors lg:hidden"
                             aria-label="Abrir menu"
                         >
                             <Menu className="w-5 h-5" />
                         </button>
 
-                        <div className="flex-1 min-w-0">
-                            <h1 className="text-[15px] font-semibold text-slate-50 leading-tight truncate">
-                                {currentNav?.name || "Painel"}
-                            </h1>
-                            <p className="hidden sm:block text-xs text-slate-500 truncate">{today}</p>
-                        </div>
+                        <nav className="flex-1 min-w-0 flex items-center gap-1.5 text-sm" aria-label="Você está em">
+                            <span className="hidden sm:inline text-fg-subtle">{currentSection}</span>
+                            <ChevronRight className="hidden sm:inline w-3.5 h-3.5 text-fg-faint" />
+                            <span className="font-medium text-fg truncate">{currentNav?.name || "Painel"}</span>
+                        </nav>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
+                            <span className="hidden md:inline text-xs text-fg-subtle mr-2">{today}</span>
                             <ThemeToggle />
                             <button
                                 onClick={() => setIsNewSaleModalOpen(true)}
-                                className="flex items-center gap-1.5 h-9 px-3 sm:px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold text-xs transition-colors active:scale-[0.98] shadow-sm shadow-emerald-600/20"
+                                className="lg:hidden flex items-center justify-center w-9 h-9 rounded-lg bg-primary text-white"
+                                aria-label="Nova operação"
                             >
-                                <Plus size={16} strokeWidth={2.5} />
-                                <span className="hidden sm:inline">Nova operação</span>
+                                <Plus size={18} strokeWidth={2.5} />
                             </button>
                         </div>
                     </header>

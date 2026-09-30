@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
-    Plus, Trash2, Loader2, Package, Wallet,
-    CheckCircle2, FileText, XCircle, ArrowUpCircle, ArrowDownCircle,
+    Trash2, Package, Wallet,
+    CheckCircle2, FileText, ArrowUpCircle, ArrowDownCircle,
     AlertCircle, Landmark, X
 } from "lucide-react";
+import { Page, PageHeader, Card, CardHeader, StatCard, Button, IconButton, Badge, EmptyState, LoadingState } from "../components/ui";
+import { formatBRL } from "../lib/format";
 
 import {
     collection, getDocs, query, where, addDoc,
@@ -187,7 +189,7 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
                 ['DIFERENÇA', `R$ ${diff.toFixed(2)}`],
             ],
             theme: 'striped',
-            headStyles: { fillColor: [37, 99, 235] },
+            headStyles: { fillColor: [234, 88, 12] },
         });
 
         autoTable(docPdf, {
@@ -276,267 +278,232 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
         }
     };
 
-    if (isLoading) return <div className="min-h-[60vh] flex items-center justify-center"><Loader2 className="animate-spin text-blue-500" size={50} /></div>;
+    const handleOpenCash = async () => {
+        const val = parseFloat(tempInitialBalance.replace(',', '.'));
+        if (isNaN(val)) return alert("Por favor, insira um valor inicial válido.");
+        setIsOpening(true);
+        try {
+            await addDoc(collection(db, "cash_sessions"), {
+                store: storeEmail,
+                initialBalance: val,
+                openedAt: serverTimestamp(),
+                status: "open"
+            });
+            setTempInitialBalance("");
+            await checkActiveSession();
+        } catch (e) {
+            alert("Erro ao abrir caixa.");
+        } finally {
+            setIsOpening(false);
+        }
+    };
+
+    const closeModal = () => {
+        setIsClosingModalOpen(false);
+        setPhysicalCashInput("");
+    };
+
+    if (isLoading) return <LoadingState label="Verificando o caixa..." />;
 
     if (!isCashOpen) {
         return (
-            <div className="text-slate-200 p-4 md:p-8">
-                <div className="max-w-5xl mx-auto space-y-6">
-                    <header className="flex justify-between items-end border-b border-slate-800 pb-6">
+            <Page narrow>
+                <PageHeader
+                    title="Fechamento de caixa"
+                    description="Abra o turno informando o fundo de troco. As vendas do dia são somadas automaticamente."
+                    meta={<Badge tone="danger" dot>Caixa fechado</Badge>}
+                />
+
+                <Card padded={false}>
+                    <CardHeader title="Abrir turno" description="Valor em dinheiro separado para troco na gaveta" icon={Wallet} />
+                    <div className="p-5 space-y-5">
                         <div>
-                            <h1 className="text-3xl font-black text-slate-50 italic">SOLUCELL<span className="text-blue-600">.</span></h1>
-                            <p className="text-rose-500 text-[10px] font-black uppercase tracking-widest">Caixa Fechado</p>
-                        </div>
-                        <div className="text-right text-[10px] font-bold text-slate-500 uppercase">Aguardando Operador</div>
-                    </header>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Painel do Fundo Inicial / Abertura */}
-                        <div className="bg-slate-900/30 border border-slate-800 rounded-3xl p-6 flex flex-col justify-between">
-                            <div>
-                                <h3 className="text-slate-50 font-black text-[10px] uppercase mb-4 tracking-widest">Abertura de Turno</h3>
-                                <p className="text-xs text-slate-400 mb-6">Informe o montante em dinheiro separado para troco e fundo de gaveta.</p>
-
-                                <div className="space-y-2 mb-4">
-                                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest block pl-1">Fundo de Caixa</label>
-                                    <input
-                                        type="text"
-                                        placeholder="R$ 0,00"
-                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-xl font-black text-slate-50 outline-none focus:border-blue-600 transition-all"
-                                        value={tempInitialBalance}
-                                        onChange={e => setTempInitialBalance(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-2 text-slate-500 bg-slate-950/40 px-4 py-2 rounded-xl border border-slate-800 text-[10px] font-bold uppercase">
-                                <AlertCircle size={14} className="text-blue-500" /> Defina o valor para liberar o terminal.
+                            <label className="ui-label" htmlFor="fundo">Fundo de caixa</label>
+                            <div className="relative max-w-xs">
+                                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-fg-subtle">R$</span>
+                                <input
+                                    id="fundo"
+                                    type="text"
+                                    inputMode="decimal"
+                                    placeholder="0,00"
+                                    className="ui-input h-11 pl-10 text-lg font-semibold tabular"
+                                    value={tempInitialBalance}
+                                    onChange={e => setTempInitialBalance(e.target.value)}
+                                    onKeyDown={e => { if (e.key === "Enter" && tempInitialBalance) handleOpenCash(); }}
+                                />
                             </div>
                         </div>
-
-                        {/* Card do Lado Direito - Minimalista e Alinhado */}
-                        <div className="bg-slate-900/30 border border-slate-800 rounded-3xl p-8 flex flex-col justify-between relative">
-                            <div className="absolute top-6 right-6 text-slate-800"><Wallet size={24} /></div>
-
-                            <div>
-                                <h3 className="text-slate-50 font-black text-[10px] uppercase mb-4 tracking-widest">Confirmação</h3>
-                                <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full text-[9px] font-black text-amber-400 uppercase tracking-wider mb-2">
-                                    ● Aguardando Início
-                                </div>
-                                <p className="text-xs text-slate-400 max-w-xs">Após confirmar, o terminal estará pronto para registrar novas vendas e fluxos de caixa.</p>
-                            </div>
-
-                            <button
-                                onClick={async () => {
-                                    const val = parseFloat(tempInitialBalance.replace(',', '.'));
-                                    if (isNaN(val)) return alert("Por favor, insira um valor inicial válido.");
-                                    setIsOpening(true);
-                                    try {
-                                        await addDoc(collection(db, "cash_sessions"), {
-                                            store: storeEmail,
-                                            initialBalance: val,
-                                            openedAt: serverTimestamp(),
-                                            status: "open"
-                                        });
-                                        setTempInitialBalance("");
-                                        await checkActiveSession();
-                                    } catch (e) {
-                                        alert("Erro ao abrir caixa.");
-                                    } finally {
-                                        setIsOpening(false);
-                                    }
-                                }}
-                                disabled={isOpening || !tempInitialBalance}
-                                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-30 disabled:hover:bg-blue-600 text-white font-black py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 active:scale-98 transition-all uppercase text-xs tracking-wider mt-6"
-                            >
-                                {isOpening ? <Loader2 className="animate-spin text-white" size={16} /> : <>INICIAR OPERAÇÃO</>}
-                            </button>
+                        <div className="flex items-start gap-2 rounded-lg bg-info-soft px-3 py-2.5 text-sm text-info">
+                            <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                            <span>Ao abrir o caixa você poderá registrar entradas e saídas manuais e, no fim do dia, conferir o dinheiro da gaveta.</span>
                         </div>
                     </div>
-                </div>
-            </div>
+                    <div className="flex justify-end border-t border-line px-5 py-4">
+                        <Button variant="primary" icon={CheckCircle2} loading={isOpening} disabled={!tempInitialBalance} onClick={handleOpenCash}>
+                            Abrir caixa
+                        </Button>
+                    </div>
+                </Card>
+            </Page>
         );
     }
 
     return (
-        <div className="text-slate-200 p-4 md:p-8 relative">
-            <div className="max-w-5xl mx-auto space-y-6">
-                <header className="flex justify-between items-end border-b border-slate-800 pb-6">
+        <Page>
+            <PageHeader
+                title="Fechamento de caixa"
+                description={`Turno aberto em ${cashOpenedAt}.`}
+                meta={<Badge tone="success" dot>Caixa aberto</Badge>}
+                actions={
+                    <Button variant="primary" icon={FileText} onClick={() => setIsClosingModalOpen(true)}>
+                        Encerrar caixa
+                    </Button>
+                }
+            />
+
+            <div className="grid grid-cols-2 xl:grid-cols-5 gap-4">
+                <StatCard label="Fundo inicial" value={formatBRL(initialBalance)} icon={Wallet} />
+                <StatCard label="Vendas em dinheiro" value={formatBRL(summary.dinheiro)} icon={Landmark} tone="success" />
+                <StatCard label="Entradas" value={formatBRL(totalIn)} icon={ArrowUpCircle} tone="success" hint={`${movements.filter(m => m.type === 'in').length} aportes`} />
+                <StatCard label="Saídas" value={formatBRL(totalOut)} icon={ArrowDownCircle} tone="danger" hint={`${movements.filter(m => m.type === 'out').length} sangrias`} />
+                <StatCard label="PIX + Cartão" value={formatBRL(summary.pix + summary.cartao)} icon={Package} tone="info" className="col-span-2 xl:col-span-1"
+                    hint={`PIX ${formatBRL(summary.pix)} · Cartão ${formatBRL(summary.cartao)}`} />
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                {/* Saldo esperado */}
+                <Card className="flex flex-col justify-between">
                     <div>
-                        <h1 className="text-3xl font-black text-slate-50 italic">SOLUCELL<span className="text-blue-600">.</span></h1>
-                        <p className="text-emerald-500 text-[10px] font-black uppercase tracking-widest">Caixa em Operação</p>
+                        <p className="text-sm font-medium text-fg-subtle">Saldo esperado na gaveta</p>
+                        <p className="mt-2 text-4xl font-semibold tracking-tight text-fg tabular">{formatBRL(saldoFinalGaveta)}</p>
                     </div>
-                    <div className="text-right text-[10px] font-bold text-slate-500 uppercase">Abertura: {cashOpenedAt}</div>
-                </header>
+                    <dl className="mt-6 space-y-2 text-sm">
+                        <div className="flex justify-between"><dt className="text-fg-subtle">Fundo inicial</dt><dd className="tabular text-fg">{formatBRL(initialBalance)}</dd></div>
+                        <div className="flex justify-between"><dt className="text-fg-subtle">+ Vendas em dinheiro</dt><dd className="tabular text-fg">{formatBRL(summary.dinheiro)}</dd></div>
+                        <div className="flex justify-between"><dt className="text-fg-subtle">+ Entradas</dt><dd className="tabular text-fg">{formatBRL(totalIn)}</dd></div>
+                        <div className="flex justify-between"><dt className="text-fg-subtle">− Saídas</dt><dd className="tabular text-fg">{formatBRL(totalOut)}</dd></div>
+                        {summary.fiado > 0 && (
+                            <div className="flex justify-between border-t border-line pt-2"><dt className="text-fg-subtle">Fiado no turno (não entra na gaveta)</dt><dd className="tabular text-danger">{formatBRL(summary.fiado)}</dd></div>
+                        )}
+                    </dl>
+                </Card>
 
-                <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                    <div className="bg-slate-900/50 p-4 rounded-2xl border border-slate-800">
-                        <p className="text-slate-500 text-[9px] font-black uppercase mb-1">Início</p>
-                        <p className="text-blue-400 font-black text-lg">R$ {initialBalance.toFixed(2)}</p>
-                    </div>
-                    <div className="bg-slate-900/50 p-4 rounded-2xl border border-slate-800">
-                        <p className="text-slate-500 text-[9px] font-black uppercase mb-1">Vendas (Din)</p>
-                        <p className="text-emerald-400 font-black text-lg">R$ {summary.dinheiro.toFixed(2)}</p>
-                    </div>
-                    <div className="bg-slate-900/50 p-4 rounded-2xl border border-slate-800">
-                        <p className="text-slate-500 text-[9px] font-black uppercase mb-1">Entradas</p>
-                        <p className="text-emerald-500 font-black text-lg">R$ {totalIn.toFixed(2)}</p>
-                    </div>
-                    <div className="bg-slate-900/50 p-4 rounded-2xl border border-slate-800">
-                        <p className="text-slate-500 text-[9px] font-black uppercase mb-1">Saídas</p>
-                        <p className="text-rose-500 font-black text-lg">R$ {totalOut.toFixed(2)}</p>
-                    </div>
-                    <div className="bg-blue-600/10 p-4 rounded-2xl border border-blue-500/20 col-span-2 lg:col-span-1">
-                        <p className="text-blue-400 text-[9px] font-black uppercase mb-1">Pix + Cartão</p>
-                        <p className="text-slate-50 font-black text-lg">R$ {(summary.pix + summary.cartao).toFixed(2)}</p>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-slate-900/30 border border-slate-800 rounded-3xl p-6">
-                        <h3 className="text-slate-50 font-black text-[10px] uppercase mb-4 tracking-widest">Movimentação Manual</h3>
-                        <div className="flex flex-col gap-2 mb-6">
-                            <div className="flex gap-2">
-                                <input placeholder="Descrição" value={newDesc} onChange={e => setNewDesc(e.target.value)} className="flex-1 bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-50 outline-none" />
-                                <input placeholder="Valor" value={newAmount} onChange={e => setNewAmount(e.target.value)} className="w-24 bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-50 outline-none" />
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                                <button onClick={() => handleAddMovement('in')} className="bg-emerald-600 p-3 rounded-xl font-bold text-[10px] flex items-center justify-center gap-2 transition-all"><ArrowUpCircle size={14} /> ENTRADA</button>
-                                <button onClick={() => handleAddMovement('out')} className="bg-rose-600 p-3 rounded-xl font-bold text-[10px] flex items-center justify-center gap-2 transition-all"><ArrowDownCircle size={14} /> SAÍDA</button>
-                            </div>
+                {/* Movimentações */}
+                <Card padded={false} className="xl:col-span-2 overflow-hidden">
+                    <CardHeader title="Movimentações manuais" description="Aportes (entradas) e sangrias (saídas) da gaveta" icon={ArrowUpCircle} />
+                    <div className="flex flex-col gap-2 border-b border-line p-4 sm:flex-row">
+                        <input placeholder="Descrição (ex.: troco, pagamento de fornecedor)" value={newDesc} onChange={e => setNewDesc(e.target.value)} className="ui-input flex-1" />
+                        <div className="relative sm:w-32">
+                            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-fg-subtle">R$</span>
+                            <input placeholder="0,00" inputMode="decimal" value={newAmount} onChange={e => setNewAmount(e.target.value)} className="ui-input pl-9 tabular" />
                         </div>
-                        <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                        <div className="flex gap-2">
+                            <Button icon={ArrowUpCircle} onClick={() => handleAddMovement('in')} className="flex-1 text-success">Entrada</Button>
+                            <Button icon={ArrowDownCircle} onClick={() => handleAddMovement('out')} className="flex-1 text-danger">Saída</Button>
+                        </div>
+                    </div>
+                    {movements.length === 0 ? (
+                        <EmptyState icon={Landmark} title="Nenhuma movimentação" description="Registre aqui trocos, sangrias e pagamentos feitos com o dinheiro da gaveta." className="py-10" />
+                    ) : (
+                        <ul className="divide-y divide-line max-h-72 overflow-y-auto">
                             {movements.map(m => (
-                                <div key={m.id} className="flex justify-between bg-slate-950/50 p-3 rounded-xl border border-slate-800 text-xs">
-                                    <div className="flex flex-col">
-                                        <p className="font-bold">{m.description}</p>
-                                        <p className={m.type === 'in' ? 'text-emerald-500 text-[8px]' : 'text-rose-500 text-[8px]'}>{m.type === 'in' ? 'Aporte' : 'Sangria'} • {m.time}</p>
+                                <li key={m.id} className="flex items-center gap-3 px-5 py-3">
+                                    <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${m.type === 'in' ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger'}`}>
+                                        {m.type === 'in' ? <ArrowUpCircle size={16} /> : <ArrowDownCircle size={16} />}
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-sm text-fg">{m.description}</p>
+                                        <p className="text-xs text-fg-subtle">{m.type === 'in' ? 'Entrada' : 'Saída'} · {m.time}</p>
                                     </div>
-                                    <div className="flex gap-4 items-center">
-                                        <p className={m.type === 'in' ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>R$ {m.amount.toFixed(2)}</p>
-                                        <button onClick={() => handleDeleteMovement(m.id)} className="text-slate-600 hover:text-rose-500"><Trash2 size={14} /></button>
-                                    </div>
-                                </div>
+                                    <span className={`text-sm font-medium tabular ${m.type === 'in' ? 'text-success' : 'text-danger'}`}>
+                                        {m.type === 'in' ? '+' : '−'} {formatBRL(m.amount)}
+                                    </span>
+                                    <IconButton icon={Trash2} label="Excluir movimentação" tone="danger" onClick={() => handleDeleteMovement(m.id)} />
+                                </li>
                             ))}
-                        </div>
-                    </div>
+                        </ul>
+                    )}
+                </Card>
+            </div>
 
-                    <div className="bg-slate-900 border-2 border-slate-800 rounded-[2.5rem] p-8 text-center flex flex-col justify-center relative">
-                        <div className="absolute top-4 right-6 text-slate-700"><Landmark size={40} /></div>
-                        <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-2">Total Esperado em Dinheiro</p>
-                        <p className="text-5xl font-black text-slate-50 italic mb-4">R$ {saldoFinalGaveta.toFixed(2)}</p>
-                        <div className="flex items-center justify-center gap-2 text-emerald-500 font-black text-[10px] uppercase tracking-widest">
-                            <CheckCircle2 size={14} /> Sistema atualizado
-                        </div>
-                    </div>
-                </div>
-
-                <div className="bg-slate-900/30 border border-slate-800 rounded-3xl overflow-hidden">
-                    <div className="p-4 bg-slate-900/50 border-b border-slate-800 text-[10px] font-black uppercase flex items-center gap-2">
-                        <Package size={14} className="text-blue-500" /> Itens Vendidos no Turno
-                    </div>
-                    <div className="max-h-60 overflow-y-auto custom-scrollbar">
-                        <table className="w-full text-left">
-                            <tbody className="divide-y divide-slate-800/50">
+            <Card padded={false} className="overflow-hidden">
+                <CardHeader title="Itens vendidos no turno" description={`${soldItems.length} produtos diferentes`} icon={Package} />
+                {soldItems.length === 0 ? (
+                    <EmptyState icon={Package} title="Nenhum item vendido ainda" description="Os produtos vendidos hoje aparecem aqui." className="py-10" />
+                ) : (
+                    <div className="max-h-80 overflow-y-auto">
+                        <table className="ui-table">
+                            <thead><tr><th>Produto</th><th className="!text-right">Quantidade</th></tr></thead>
+                            <tbody>
                                 {soldItems.map((item, i) => (
-                                    <tr key={`item-${i}`} className="text-xs hover:bg-slate-800/20">
-                                        <td className="px-6 py-4 font-bold text-slate-300">{item.name}</td>
-                                        <td className="px-6 py-4 text-right font-black text-slate-50">{item.qty} un</td>
+                                    <tr key={`item-${i}`}>
+                                        <td className="text-fg">{item.name}</td>
+                                        <td className="text-right tabular">{item.qty} un</td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
                     </div>
-                </div>
+                )}
+            </Card>
 
-                <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4">
-                    <div className="flex items-center gap-2 text-rose-500 bg-rose-500/10 px-4 py-2 rounded-full border border-rose-500/20">
-                        <AlertCircle size={14} />
-                        <p className="text-[10px] font-black uppercase">Fiado Pendente: R$ {summary.fiado.toFixed(2)}</p>
-                    </div>
-                    <button
-                        onClick={() => setIsClosingModalOpen(true)}
-                        className="w-full md:w-auto bg-blue-600 hover:bg-blue-500 text-white font-black px-10 py-5 rounded-2xl shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all"
-                    >
-                        <FileText size={20} /> ENCERRAR CAIXA
-                    </button>
-                </div>
-            </div>
-
-            {/* MODAL CUSTOMIZADO DE FECHAMENTO */}
+            {/* MODAL DE FECHAMENTO */}
             {isClosingModalOpen && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-                    <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] w-full max-w-lg p-8 relative shadow-2xl">
-                        <button
-                            onClick={() => {
-                                setIsClosingModalOpen(false);
-                                setPhysicalCashInput("");
-                            }}
-                            className="absolute top-6 right-6 text-slate-400 hover:text-slate-50 transition-all"
-                        >
-                            <X size={20} />
-                        </button>
-
-                        <div className="text-center mb-6">
-                            <Landmark className="mx-auto text-blue-500 mb-3" size={40} />
-                            <h3 className="text-xl font-black text-slate-50 uppercase italic tracking-wide">Conferência de Caixa</h3>
-                            <p className="text-xs text-slate-400 mt-1">Insira o montante total em dinheiro físico presente na gaveta</p>
-                        </div>
-
-                        <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 mb-6 flex justify-between items-center">
-                            <span className="text-xs font-bold text-slate-500 uppercase">Saldo Esperado:</span>
-                            <span className="text-lg font-black text-slate-300">R$ {saldoFinalGaveta.toFixed(2)}</span>
-                        </div>
-
-                        <div className="space-y-2 mb-6">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block pl-1">Valor Contado (Dinheiro)</label>
-                            <input
-                                type="text"
-                                placeholder="R$ 0,00"
-                                value={physicalCashInput}
-                                onChange={e => setPhysicalCashInput(e.target.value)}
-                                className="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl p-4 text-2xl font-black text-slate-50 text-center focus:border-blue-600 outline-none transition-all"
-                                autoFocus
-                            />
-                        </div>
-
-                        {/* Painel Informativo da Diferença em tempo real */}
-                        {physicalCashInput.trim() !== "" && (
-                            <div className={`p-4 rounded-2xl border text-center mb-6 transition-all ${currentDifference === 0
-                                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                                    : currentDifference > 0
-                                        ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
-                                        : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-                                }`}>
-                                <p className="text-xs font-black uppercase tracking-wider">
-                                    {currentDifference === 0 && "Caixa perfeito! Tudo bateu."}
-                                    {currentDifference > 0 && `Sobra no caixa: R$ ${currentDifference.toFixed(2)}`}
-                                    {currentDifference < 0 && `Falta no caixa: R$ ${Math.abs(currentDifference).toFixed(2)}`}
-                                </p>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-[2px]" onClick={closeModal}>
+                    <div className="w-full max-w-md rounded-xl border border-line bg-surface shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-start justify-between border-b border-line px-5 py-4">
+                            <div>
+                                <h3 className="text-base font-semibold text-fg">Conferência de caixa</h3>
+                                <p className="mt-0.5 text-sm text-fg-subtle">Conte o dinheiro físico da gaveta e informe o total.</p>
                             </div>
-                        )}
+                            <IconButton icon={X} label="Fechar" onClick={closeModal} />
+                        </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                            <button
-                                onClick={() => {
-                                    setIsClosingModalOpen(false);
-                                    setPhysicalCashInput("");
-                                }}
-                                className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-4 rounded-xl text-xs uppercase tracking-wider transition-all"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={handleExecuteCloseCash}
-                                disabled={isClosing || !physicalCashInput}
-                                className="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:hover:bg-blue-600 text-white font-black py-4 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all"
-                            >
-                                {isClosing ? <Loader2 className="animate-spin text-white" size={16} /> : "CONFIRMAR E FECHAR"}
-                            </button>
+                        <div className="space-y-4 p-5">
+                            <div className="flex items-center justify-between rounded-lg bg-subtle border border-line px-4 py-3 text-sm">
+                                <span className="text-fg-subtle">Saldo esperado</span>
+                                <span className="font-semibold text-fg tabular">{formatBRL(saldoFinalGaveta)}</span>
+                            </div>
+
+                            <div>
+                                <label className="ui-label" htmlFor="contado">Valor contado</label>
+                                <div className="relative">
+                                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-fg-subtle">R$</span>
+                                    <input
+                                        id="contado"
+                                        type="text"
+                                        inputMode="decimal"
+                                        placeholder="0,00"
+                                        value={physicalCashInput}
+                                        onChange={e => setPhysicalCashInput(e.target.value)}
+                                        className="ui-input h-12 pl-10 text-xl font-semibold tabular"
+                                        autoFocus
+                                    />
+                                </div>
+                            </div>
+
+                            {physicalCashInput.trim() !== "" && (
+                                <div className={`flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium ${Math.abs(currentDifference) < 0.005
+                                    ? 'bg-success-soft text-success'
+                                    : currentDifference > 0 ? 'bg-warning-soft text-warning' : 'bg-danger-soft text-danger'}`}>
+                                    {Math.abs(currentDifference) < 0.005 ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                                    {Math.abs(currentDifference) < 0.005 && "Caixa conferido: os valores batem."}
+                                    {currentDifference >= 0.005 && `Sobra de ${formatBRL(currentDifference)} no caixa.`}
+                                    {currentDifference <= -0.005 && `Falta de ${formatBRL(Math.abs(currentDifference))} no caixa.`}
+                                </div>
+                            )}
+                            <p className="text-xs text-fg-subtle">Ao confirmar, o relatório em PDF é baixado e o turno é encerrado.</p>
+                        </div>
+
+                        <div className="flex justify-end gap-2 border-t border-line px-5 py-4">
+                            <Button onClick={closeModal}>Cancelar</Button>
+                            <Button variant="primary" loading={isClosing} disabled={!physicalCashInput} onClick={handleExecuteCloseCash}>
+                                Confirmar e fechar
+                            </Button>
                         </div>
                     </div>
                 </div>
             )}
-        </div>
+        </Page>
     );
 }

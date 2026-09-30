@@ -74,7 +74,7 @@ const RefundConfirmationModal: React.FC<RefundConfirmationModalProps> = ({
                     </button>
                     <button
                         onClick={handleConfirmRefund}
-                        className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors shadow-lg shadow-red-500/20"
+                        className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors shadow-lg"
                         disabled={loading}
                     >
                         {loading ? "Processando..." : "Confirmar Reembolso"}
