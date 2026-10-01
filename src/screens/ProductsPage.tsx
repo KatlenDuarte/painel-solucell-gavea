@@ -88,6 +88,10 @@ export default function ProductsContent() {
         const minStock = Number(p.minStock || 5);
         return {
             ...p,
+            name: String(p.name ?? ""),
+            brand: String(p.brand ?? ""),
+            model: String(p.model ?? ""),
+            category: String(p.category ?? ""),
             stock,
             minStock,
             price: Number(p.price || 0),

@@ -6,35 +6,41 @@ import { useTheme } from "../contexts/ThemeContext";
 import logo from "../assets/logo-solucelll.png";
 
 interface LoginPageProps {
-  onLoginSuccess?: (email: string) => void;
+  externalError?: string;
+  onClearError?: () => void;
 }
 
-export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
+const AUTH_ERRORS: Record<string, string> = {
+  "auth/invalid-credential": "E-mail ou senha inválidos.",
+  "auth/invalid-login-credentials": "E-mail ou senha inválidos.",
+  "auth/wrong-password": "Senha incorreta.",
+  "auth/user-not-found": "Usuário não encontrado.",
+  "auth/invalid-email": "E-mail em formato inválido.",
+  "auth/user-disabled": "Esta conta foi desativada.",
+  "auth/too-many-requests": "Muitas tentativas seguidas. Aguarde alguns minutos e tente novamente.",
+  "auth/network-request-failed": "Sem conexão com o servidor. Verifique a internet e tente novamente.",
+};
+
+export default function LoginPage({ externalError, onClearError }: LoginPageProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const shownError = error || externalError;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    onClearError?.();
     setIsLoading(true);
 
     try {
-      const result = await signInWithEmailAndPassword(auth, email, password);
-      const user = result.user;
-
-      onLoginSuccess?.(user.email || "");
-    } catch (err: any) {
-      let message = "Erro ao tentar logar";
-
-      if (err.code === "auth/invalid-credential") message = "E-mail ou senha inválidos";
-      if (err.code === "auth/user-not-found") message = "Usuário não encontrado";
-      if (err.code === "auth/wrong-password") message = "Senha incorreta";
-
-      setError(message);
-    } finally {
+      // O App reage ao login via onAuthStateChanged
+      await signInWithEmailAndPassword(auth, email.trim(), password);
+    } catch (err) {
+      const code = (err as { code?: string })?.code || "";
+      setError(AUTH_ERRORS[code] || `Não foi possível entrar (${code || "erro desconhecido"}).`);
       setIsLoading(false);
     }
   };
@@ -106,8 +112,8 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
             </div>
           </div>
 
-          {error && (
-            <p className="mt-4 rounded-lg bg-danger-soft px-3 py-2.5 text-sm text-danger">{error}</p>
+          {shownError && (
+            <p role="alert" className="mt-4 rounded-xl bg-danger-soft px-3 py-2.5 text-sm text-danger">{shownError}</p>
           )}
 
           <button

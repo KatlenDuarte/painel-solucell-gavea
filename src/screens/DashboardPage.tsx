@@ -35,6 +35,7 @@ interface Sale {
     type?: string;
     paymentMethod?: string;
     payments?: { pix?: number; cartao?: number; dinheiro?: number };
+    multiplePayments?: { method?: string; value?: number }[];
     items?: SaleItem[];
 }
 
@@ -106,6 +107,14 @@ export default function DashboardPage() {
             else if (m === "Cartão") mix.Cartão += s.total;
             else if (m === "Dinheiro") mix.Dinheiro += s.total;
             else if (m === "Fiado" || m === "Fiado (Quitado)") mix.Fiado += s.total;
+            else if (Array.isArray(s.multiplePayments) && s.multiplePayments.length) {
+                s.multiplePayments.forEach(p => {
+                    const k = String(p?.method || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+                    if (k.includes("PIX")) mix.PIX += Number(p.value) || 0;
+                    else if (k.includes("CARTAO")) mix.Cartão += Number(p.value) || 0;
+                    else if (k.includes("DINHEIRO")) mix.Dinheiro += Number(p.value) || 0;
+                });
+            }
             else if (s.payments) {
                 mix.PIX += Number(s.payments.pix) || 0;
                 mix.Cartão += Number(s.payments.cartao) || 0;
@@ -115,7 +124,7 @@ export default function DashboardPage() {
 
         // Mais vendidos
         const byProduct: Record<string, { qty: number; total: number }> = {};
-        valid.forEach(s => s.items?.forEach(it => {
+        valid.forEach(s => (Array.isArray(s.items) ? s.items : []).forEach(it => {
             const name = it.name || "Item";
             const qty = Number(it.saleQty ?? it.quantity ?? 1) || 1;
             const total = Number(it.total ?? (Number(it.price) || 0) * qty) || 0;
@@ -299,8 +308,9 @@ export default function DashboardPage() {
                         <ul className="divide-y divide-line">
                             {stats.recent.map(s => {
                                 const d = s.timestamp?.toDate();
-                                const first = s.items?.[0]?.name || "Venda";
-                                const more = (s.items?.length || 0) - 1;
+                                const its = Array.isArray(s.items) ? s.items : [];
+                                const first = its[0]?.name || "Venda";
+                                const more = its.length - 1;
                                 return (
                                     <li key={s.id} className="flex items-center gap-3 px-5 py-3">
                                         <div className="min-w-0 flex-1">

@@ -12,7 +12,7 @@ import {
     TrendingUp,
     Receipt
 } from "lucide-react";
-import { Page, PageHeader, Card, StatCard, Button, Badge, Segmented, SearchInput, EmptyState, LoadingState } from "../components/ui";
+import { Page, PageHeader, Card, StatCard, Button, Badge, Segmented, SearchInput, EmptyState, LoadingState, ListRow } from "../components/ui";
 import { formatBRL } from "../lib/format";
 
 import { useStoreData } from "../contexts/StoreDataContext";
@@ -109,9 +109,15 @@ export default function SalesFuncionarioPage({ storeEmail }: Props) {
                             minute: "2-digit"
                         })
                         : "--:--",
-                    items: data.items || [],
+                    items: Array.isArray(data.items)
+                        ? data.items.filter(Boolean).map((i: { name?: string; saleQty?: number; quantity?: number; price?: number }) => ({
+                            name: String(i.name ?? "Item"),
+                            saleQty: Number(i.saleQty ?? i.quantity ?? 1) || 1,
+                            price: Number(i.price) || 0,
+                        }))
+                        : [],
                     total: Number(data.total) || 0,
-                    payment: data.paymentMethod || "Não informado",
+                    payment: String(data.paymentMethod || "Não informado"),
                     status: data.status || "completed",
                     clientName:
                         data.clientName ||
@@ -292,7 +298,30 @@ export default function SalesFuncionarioPage({ storeEmail }: Props) {
                         action={<Button variant="primary" icon={Plus} onClick={() => setIsNewSaleModalOpen(true)}>Registrar venda</Button>}
                     />
                 ) : (
-                    <div className="overflow-x-auto">
+                    <>
+                    <ul className="md:hidden divide-y divide-line">
+                        {finalFilteredSales.map((sale) => {
+                            const inactive = sale.status === "refunded" || sale.status === "cancelled";
+                            return (
+                                <ListRow
+                                    key={sale.id}
+                                    className={inactive ? "opacity-60" : ""}
+                                    leading={<span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary-text"><Receipt size={18} /></span>}
+                                    title={<span className={`line-clamp-2 ${inactive ? "line-through" : ""}`}>{sale.items.map(i => `${i.saleQty}× ${i.name}`).join(", ") || "Venda"}</span>}
+                                    value={money(sale.total)}
+                                    subtitle={<>{sale.date} · {sale.time}{sale.clientName ? ` · ${sale.clientName}` : ""}</>}
+                                    meta={<>
+                                        {sale.status === "pending" ? <Badge tone="warning" dot>Fiado pendente</Badge>
+                                            : sale.status === "refunded" ? <Badge tone="danger" dot>Estornada</Badge>
+                                                : sale.status === "cancelled" ? <Badge dot>Cancelada</Badge>
+                                                    : <Badge tone="success" dot>Concluída</Badge>}
+                                        <Badge>{sale.splitPayments && sale.splitPayments.length > 1 ? "Múltiplos" : sale.payment}</Badge>
+                                    </>}
+                                />
+                            );
+                        })}
+                    </ul>
+                    <div className="hidden md:block overflow-x-auto">
                         <table className="ui-table min-w-[720px]">
                             <thead>
                                 <tr>
@@ -353,6 +382,7 @@ export default function SalesFuncionarioPage({ storeEmail }: Props) {
                             </tbody>
                         </table>
                     </div>
+                    </>
                 )}
             </Card>
         </Page>

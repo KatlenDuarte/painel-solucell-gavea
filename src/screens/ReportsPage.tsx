@@ -8,7 +8,7 @@ import {
     Calendar, DollarSign, ShoppingCart, CreditCard,
     Download, Clock, Search, ArrowUp, ArrowDown
 } from "lucide-react";
-import { Page, PageHeader, Card, StatCard, Button, Badge, Segmented, SearchInput, EmptyState, LoadingState, type Tone } from "../components/ui";
+import { Page, PageHeader, Card, StatCard, Button, Badge, Segmented, SearchInput, EmptyState, LoadingState, ListRow, type Tone } from "../components/ui";
 import { formatBRL } from "../lib/format";
 
 interface SaleData {
@@ -147,7 +147,8 @@ export default function Reports() {
                     id: doc.id,
                     ...doc.data(),
                     total: Number(doc.data().total) || 0,
-                    store: (doc.data().store || "").trim()
+                    store: String(doc.data().store || "").trim(),
+                    items: Array.isArray(doc.data().items) ? doc.data().items.filter(Boolean) : [],
                 } as SaleData));
 
                 setSales(data);
@@ -402,7 +403,29 @@ export default function Reports() {
                 {processedSales.length === 0 ? (
                     <EmptyState icon={ShoppingCart} title="Nenhuma venda no período" description="Escolha outro período ou ajuste os filtros." />
                 ) : (
-                    <div className="overflow-x-auto">
+                    <>
+                    <ul className="md:hidden divide-y divide-line">
+                        {processedSales.map(sale => {
+                            const splits = getSplitPayments(sale);
+                            const d = sale.timestamp?.toDate?.();
+                            return (
+                                <ListRow
+                                    key={sale.id}
+                                    title={<span className="line-clamp-2">{describeItems(sale)}</span>}
+                                    value={formatBRL(sale.total)}
+                                    subtitle={d ? `${d.toLocaleDateString("pt-BR")} · ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : "—"}
+                                    meta={splits.length > 0
+                                        ? splits.map((p, idx) => <Badge key={idx} tone={paymentTone(p.method)}>{p.method.charAt(0) + p.method.slice(1).toLowerCase()} {formatBRL(p.value)}</Badge>)
+                                        : <Badge tone={paymentTone(sale.paymentMethod)}>{sale.paymentMethod || "Não informado"}</Badge>}
+                                />
+                            );
+                        })}
+                        <li className="flex items-center justify-between bg-subtle px-4 py-3 text-sm">
+                            <span className="font-medium text-fg">Total ({metrics.totalSales})</span>
+                            <span className="font-bold text-fg tabular">{formatBRL(metrics.totalRevenue)}</span>
+                        </li>
+                    </ul>
+                    <div className="hidden md:block overflow-x-auto">
                         <table className="ui-table min-w-[720px]">
                             <thead>
                                 <tr>
@@ -448,6 +471,7 @@ export default function Reports() {
                             </tfoot>
                         </table>
                     </div>
+                    </>
                 )}
             </Card>
         </Page>

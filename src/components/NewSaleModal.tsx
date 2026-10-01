@@ -406,11 +406,11 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({ onClose, storeEmail, onSale
     }[activeTab];
 
     return (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-50 p-4 font-sans text-slate-300">
-            <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl w-full max-w-6xl h-[90vh] shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-stretch sm:items-center justify-center z-50 sm:p-4 font-sans text-slate-300">
+            <div className="bg-slate-900 sm:border border-slate-800 sm:rounded-2xl w-full max-w-6xl h-full sm:h-[90vh] shadow-2xl flex flex-col overflow-hidden">
 
                 {/* Header */}
-                <header className="px-6 py-4 border-b border-slate-800/60 flex items-center justify-between gap-4 bg-slate-900/40">
+                <header className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
                     <div className="flex items-center gap-3">
                         <div className={`p-2 rounded-lg bg-slate-950 border ${theme.border} ${theme.text}`}>
                             {theme.icon}
@@ -420,12 +420,12 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({ onClose, storeEmail, onSale
                         </h2>
                     </div>
 
-                    <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800/80">
+                    <div className="order-3 sm:order-none w-full sm:w-auto grid grid-cols-3 sm:flex bg-slate-950 p-1 rounded-xl border border-slate-800">
                         {((['venda', 'manutencao', 'perda'] as const)).map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => { setActiveTab(tab); setPaymentMethod('PIX'); }}
-                                className={`px-4 py-1.5 rounded-lg text-xs font-medium tracking-wide transition-all ${activeTab === tab ? 'bg-slate-900 text-slate-50 shadow-sm' : 'text-slate-500 hover:text-slate-400'}`}
+                                className={`px-4 py-2 sm:py-1.5 rounded-lg text-sm sm:text-xs font-medium transition-all ${activeTab === tab ? 'bg-slate-900 text-slate-50 shadow-sm' : 'text-slate-500 hover:text-slate-400'}`}
                             >
                                 {tab === 'venda' ? 'Venda' : tab === 'manutencao' ? 'Manutenção' : 'Perda'}
                             </button>
@@ -438,10 +438,10 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({ onClose, storeEmail, onSale
                 </header>
 
                 {/* Main Content */}
-                <main className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+                <main className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
 
                     {/* Left Column */}
-                    <section className="flex-1 overflow-y-auto p-6 space-y-6">
+                    <section className="lg:flex-1 lg:overflow-y-auto p-4 sm:p-6 space-y-6">
                         {(activeTab === 'venda' || activeTab === 'perda') && (
                             <div className="space-y-4">
                                 <div className="relative">
@@ -555,7 +555,7 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({ onClose, storeEmail, onSale
                     </section>
 
                     {/* Right Column - Summary & Checkout */}
-                    <aside className="w-full lg:w-[380px] bg-slate-950/40 border-t lg:border-t-0 lg:border-l border-slate-800/60 p-6 flex flex-col gap-6 justify-between overflow-y-auto">
+                    <aside className="w-full lg:w-[380px] bg-slate-950/40 border-t lg:border-t-0 lg:border-l border-slate-800 p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] flex flex-col gap-6 justify-between lg:overflow-y-auto">
                         <div className="space-y-6">
                             <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-3">
                                 <div className="flex justify-between text-xs text-slate-400">

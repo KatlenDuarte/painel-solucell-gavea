@@ -3,9 +3,9 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import {
     Plus, Search, CreditCard, Smartphone,
     DollarSign, Undo2, TrendingUp, Eye, EyeOff,
-    Pencil, User, Wrench, Printer, Receipt, X
+    Pencil, User, Wrench, Printer, Receipt, X, ShoppingBag
 } from "lucide-react";
-import { Page, PageHeader, Card, StatCard, Button, IconButton, Badge, Segmented, SearchInput, EmptyState, LoadingState } from "../components/ui";
+import { Page, PageHeader, Card, StatCard, Button, IconButton, Badge, Segmented, SearchInput, EmptyState, LoadingState, ListRow } from "../components/ui";
 import { formatBRL } from "../lib/format";
 
 import { useStoreData } from "../contexts/StoreDataContext";
@@ -44,6 +44,17 @@ interface SaleWithClient {
     partCost?: number;          // Custo da peça se for manutenção
     multiplePayments?: MultiplePayment[]; // Array se houver mais de uma forma de pagamento
 }
+
+// Garante formato consistente dos itens (registros antigos podem não ter nome/quantidade)
+const normalizeItems = (items: unknown): SaleItem[] =>
+    Array.isArray(items)
+        ? items.filter(Boolean).map((i: Partial<SaleItem> & { quantity?: number }) => ({
+            id: String(i.id ?? ""),
+            name: String(i.name ?? "Item"),
+            saleQty: Number(i.saleQty ?? i.quantity ?? 1) || 1,
+            price: Number(i.price) || 0,
+        }))
+        : [];
 
 interface SalesProps {
     storeEmail: string;
@@ -119,9 +130,9 @@ export default function Sales({ storeEmail }: SalesProps) {
                     dateObject: ts,
                     date: ts ? ts.toLocaleDateString("pt-BR") : "--/--/----",
                     time: ts ? ts.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "--:--",
-                    items: data.items || [],
+                    items: normalizeItems(data.items),
                     total: Number(data.total) || 0,
-                    payment: data.paymentMethod || "PIX",
+                    payment: String(data.paymentMethod || "PIX"),
                     status: data.status || (data.paymentMethod === "Fiado" ? "pending" : "completed"),
                     clientName: data.clientName || data.fiado?.nome || data.payments?.fiado?.nome,
 
@@ -129,7 +140,7 @@ export default function Sales({ storeEmail }: SalesProps) {
                     type: data.type || "venda",
                     partCost: Number(data.partCost) || 0,
                     multiplePayments:
-                        data.multiplePayments ||
+                        (Array.isArray(data.multiplePayments) ? data.multiplePayments.filter((p: { method?: string }) => p && p.method) : null) ||
                         (data.payments
                             ? [
                                 ...(data.payments.pix > 0
@@ -440,7 +451,49 @@ export default function Sales({ storeEmail }: SalesProps) {
                         action={<Button variant="primary" icon={Plus} onClick={() => setIsNewSaleModal(true)}>Registrar venda</Button>}
                     />
                 ) : (
-                    <div className="overflow-x-auto">
+                    <>
+                    {/* Celular: lista em cartões */}
+                    <div className="md:hidden">
+                        {Object.entries(groupedSales).map(([dateKey, salesForDate]) => (
+                            <section key={dateKey}>
+                                <div className="sticky top-14 z-10 flex items-center justify-between bg-subtle/95 backdrop-blur px-4 py-2 text-xs border-y border-line">
+                                    <span className="font-semibold text-fg">{dateKey === todayLabel ? "Hoje" : dateKey}</span>
+                                    <span className="text-fg-subtle">{salesForDate.length} {salesForDate.length === 1 ? "operação" : "operações"}</span>
+                                </div>
+                                <ul className="divide-y divide-line">
+                                    {salesForDate.map((sale) => {
+                                        const inactive = sale.status === "refunded" || sale.status === "cancelled";
+                                        const isLossSale = isLoss(sale);
+                                        return (
+                                            <ListRow
+                                                key={sale.id}
+                                                className={inactive ? "opacity-60" : ""}
+                                                leading={
+                                                    <span className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${sale.type === "manutencao" ? "bg-info-soft text-info" : isLossSale ? "bg-danger-soft text-danger" : "bg-primary-soft text-primary-text"}`}>
+                                                        {sale.type === "manutencao" ? <Wrench size={18} /> : <ShoppingBag size={18} />}
+                                                    </span>
+                                                }
+                                                title={<span className={`line-clamp-2 ${inactive ? "line-through" : ""}`}>{sale.items.map(i => `${i.saleQty}× ${i.name}`).join(", ") || "Venda"}</span>}
+                                                value={<span className={isLossSale ? "text-danger" : inactive ? "line-through" : ""}>{isLossSale ? "− " : ""}{money(sale.total)}</span>}
+                                                subtitle={<>{sale.time}{sale.clientName ? ` · ${sale.clientName}` : ""}</>}
+                                                meta={<>{statusBadge(sale)}<Badge>{sale.multiplePayments && sale.multiplePayments.length > 1 ? "Múltiplos" : sale.payment}</Badge></>}
+                                                actions={!inactive && (
+                                                    <>
+                                                        <IconButton icon={Printer} label="Imprimir cupom" onClick={() => handlePrintSale(sale)} />
+                                                        <IconButton icon={Pencil} label="Editar" onClick={() => { setSaleToEdit(sale); setIsEditModalOpen(true); }} />
+                                                        <IconButton icon={Undo2} label="Estornar" tone="danger" onClick={() => { setRefundSaleId(sale.id); setIsModalOpen(true); }} />
+                                                    </>
+                                                )}
+                                            />
+                                        );
+                                    })}
+                                </ul>
+                            </section>
+                        ))}
+                    </div>
+
+                    {/* Desktop: tabela */}
+                    <div className="hidden md:block overflow-x-auto">
                         <table className="ui-table min-w-[820px]">
                             <thead>
                                 <tr>
@@ -536,6 +589,7 @@ export default function Sales({ storeEmail }: SalesProps) {
                             })}
                         </table>
                     </div>
+                    </>
                 )}
             </Card>
         </Page>

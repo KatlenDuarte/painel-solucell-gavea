@@ -21,7 +21,7 @@ import {
     Printer,
     ChevronsRight
 } from "lucide-react";
-import { Page, PageHeader, Card, StatCard, Button, IconButton, Badge, Segmented, SearchInput, EmptyState, LoadingState, type Tone } from "../components/ui";
+import { Page, PageHeader, Card, StatCard, Button, IconButton, Badge, Segmented, SearchInput, EmptyState, LoadingState, ListRow, type Tone } from "../components/ui";
 import { formatBRL, initials } from "../lib/format";
 
 import {
@@ -111,7 +111,17 @@ export default function MaintenancePage() {
         return subscribeMaintenances(
             storeEmail,
             (data) => {
-                setMaintenances(data as Maintenance[]);
+                setMaintenances(data.map(m => ({
+                    ...m,
+                    customer: String(m.customer ?? ""),
+                    phone: String(m.phone ?? ""),
+                    device: String(m.device ?? ""),
+                    brand: String(m.brand ?? ""),
+                    model: String(m.model ?? ""),
+                    issue: String(m.issue ?? ""),
+                    status: m.status || "pending",
+                    value: Number(m.value) || 0,
+                })) as Maintenance[]);
                 setLoading(false);
             },
             (error) => {
@@ -513,7 +523,44 @@ export default function MaintenancePage() {
                         action={<Button variant="primary" icon={Plus} onClick={() => setShowAddModal(true)}>Nova ordem de serviço</Button>}
                     />
                 ) : (
-                    <div className="overflow-x-auto">
+                    <>
+                    <ul className="lg:hidden divide-y divide-line">
+                        {processedMaintenances.map((m) => {
+                            const cfg = statusConfig[m.status] || statusConfig.pending;
+                            const StatusIcon = cfg.icon;
+                            const isBusy = quickActionLoadingId === m.id;
+                            const created = new Date(m.createdAt);
+                            return (
+                                <ListRow
+                                    key={m.id}
+                                    leading={
+                                        <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-subtle border border-line text-xs font-semibold text-fg-muted">
+                                            {initials(m.customer)}
+                                        </span>
+                                    }
+                                    title={<>{m.customer || "Cliente"} <span className="font-normal text-fg-subtle">· {m.device || "Aparelho"}{m.model ? ` ${m.model}` : ""}</span></>}
+                                    value={formatBRL(m.value)}
+                                    subtitle={<span className="line-clamp-2">{m.issue || "Sem descrição"} · {isNaN(created.getTime()) ? "—" : created.toLocaleDateString("pt-BR")}</span>}
+                                    meta={<>
+                                        <Badge tone={cfg.tone}><StatusIcon size={12} /> {cfg.label}</Badge>
+                                        <button onClick={() => togglePaidStatus(m)} disabled={isBusy} className="disabled:opacity-50">
+                                            {isBusy ? <Loader size={14} className="animate-spin text-fg-subtle" />
+                                                : m.paid ? <Badge tone="success" dot>Pago</Badge> : <Badge tone="danger" dot>A receber</Badge>}
+                                        </button>
+                                    </>}
+                                    actions={<>
+                                        {nextStatusLabel[m.status] && (
+                                            <IconButton icon={ChevronsRight} label={nextStatusLabel[m.status]!} tone="primary" disabled={isBusy} onClick={() => advanceStatus(m)} />
+                                        )}
+                                        <IconButton icon={Printer} label="Imprimir O.S." onClick={() => handlePrintOS(m)} />
+                                        <IconButton icon={Edit2} label="Editar" onClick={() => openEditModal(m)} />
+                                        <IconButton icon={Trash2} label="Excluir" tone="danger" onClick={() => handleDelete(m.id)} />
+                                    </>}
+                                />
+                            );
+                        })}
+                    </ul>
+                    <div className="hidden lg:block overflow-x-auto">
                         <table className="ui-table min-w-[980px]">
                             <thead>
                                 <tr>
@@ -590,6 +637,7 @@ export default function MaintenancePage() {
                             </tbody>
                         </table>
                     </div>
+                    </>
                 )}
             </Card>
 
