@@ -14,7 +14,7 @@ import {
     Check,
 } from "lucide-react"
 // Presume-se que 'Timestamp' é do Firebase
-import { Timestamp } from "firebase/firestore"
+import { Timestamp } from "../lib/firestore"
 
 // -----------------------------------------------------------
 // TIPOS DE DADOS ATUALIZADOS

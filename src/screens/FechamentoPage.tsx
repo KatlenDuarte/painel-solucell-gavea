@@ -10,7 +10,7 @@ import { formatBRL } from "../lib/format";
 import {
     collection, getDocs, query, where, addDoc,
     serverTimestamp, deleteDoc, doc, updateDoc, limit, orderBy, Timestamp
-} from "firebase/firestore";
+} from "../lib/firestore";
 import { db } from "../lib/firebase";
 
 import { jsPDF } from "jspdf";
@@ -361,12 +361,12 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
                 }
             />
 
-            <div className="grid grid-cols-2 xl:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-5 gap-4">
                 <StatCard label="Fundo inicial" value={formatBRL(initialBalance)} icon={Wallet} />
                 <StatCard label="Vendas em dinheiro" value={formatBRL(summary.dinheiro)} icon={Landmark} tone="success" />
                 <StatCard label="Entradas" value={formatBRL(totalIn)} icon={ArrowUpCircle} tone="success" hint={`${movements.filter(m => m.type === 'in').length} aportes`} />
                 <StatCard label="Saídas" value={formatBRL(totalOut)} icon={ArrowDownCircle} tone="danger" hint={`${movements.filter(m => m.type === 'out').length} sangrias`} />
-                <StatCard label="PIX + Cartão" value={formatBRL(summary.pix + summary.cartao)} icon={Package} tone="info" className="col-span-2 xl:col-span-1"
+                <StatCard label="PIX + Cartão" value={formatBRL(summary.pix + summary.cartao)} icon={Package} tone="info" className="col-span-2 md:col-span-1"
                     hint={`PIX ${formatBRL(summary.pix)} · Cartão ${formatBRL(summary.cartao)}`} />
             </div>
 

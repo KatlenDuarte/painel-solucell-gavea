@@ -456,8 +456,8 @@ export default function MaintenancePage() {
                 actions={<Button variant="primary" icon={Plus} onClick={() => setShowAddModal(true)}>Nova ordem de serviço</Button>}
             />
 
-            <div className="grid grid-cols-2 xl:grid-cols-5 gap-4">
-                <StatCard label="Faturamento" value={formatBRL(metrics.total)} icon={DollarSign} tone="primary" hint={`${processedMaintenances.length} ordens no período`} className="col-span-2 xl:col-span-1" />
+            <div className="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-5 gap-4">
+                <StatCard label="Faturamento" value={formatBRL(metrics.total)} icon={DollarSign} tone="primary" hint={`${processedMaintenances.length} ordens no período`} className="col-span-2 md:col-span-1" />
                 <StatCard label="Em andamento" value={metrics.pending} icon={Wrench} tone="warning" hint="Aguardando ou em reparo" />
                 <StatCard label="Concluídas" value={metrics.completed} icon={CheckCircle} tone="success" />
                 <StatCard label="Pagas" value={metrics.paid} icon={CreditCard} tone="info" />

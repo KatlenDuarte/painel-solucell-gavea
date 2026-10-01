@@ -10,7 +10,7 @@ import {
   updateDoc,
   limit,
   orderBy,
-} from "firebase/firestore";
+} from "../lib/firestore";
 import { db } from "../lib/firebase";
 
 export const productsCollection = collection(db, "products");

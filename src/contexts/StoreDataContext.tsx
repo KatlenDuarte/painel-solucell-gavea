@@ -14,7 +14,7 @@ import {
     where,
     type QueryDocumentSnapshot,
     type DocumentData,
-} from "firebase/firestore";
+} from "../lib/firestore";
 import { db } from "../lib/firebase";
 
 export type StoreDoc = QueryDocumentSnapshot<DocumentData>;

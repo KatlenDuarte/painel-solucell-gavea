@@ -22,7 +22,7 @@ import {
     updateDoc,
     doc,
     serverTimestamp
-} from "firebase/firestore";
+} from "../lib/firestore";
 import QuitarFiadoModal from "../components/QuitarFiadoModal";
 
 import { db } from "../lib/firebase";

@@ -1,6 +1,6 @@
 // src/screens/Reports.tsx
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { collection, getDocs, query, orderBy, where, Timestamp, limit } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, where, Timestamp, limit } from "../lib/firestore";
 import { db } from "../lib/firebase";
 import jsPDF from 'jspdf';
 import autoTable from "jspdf-autotable";

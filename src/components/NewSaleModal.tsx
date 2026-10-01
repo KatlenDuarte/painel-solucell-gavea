@@ -8,7 +8,7 @@ import {
 
 // Firebase
 import { db } from "../lib/firebase";
-import { collection, serverTimestamp, doc, runTransaction } from "firebase/firestore";
+import { collection, serverTimestamp, doc, runTransaction } from "../lib/firestore";
 import { useStoreData } from "../contexts/StoreDataContext";
 
 // --- Interfaces ---

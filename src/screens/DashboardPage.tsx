@@ -1,6 +1,6 @@
 // src/screens/DashboardPage.tsx
 import { useState, useMemo } from "react";
-import type { Timestamp } from "firebase/firestore";
+import type { Timestamp } from "../lib/firestore";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import {
     Wallet, Receipt, BookOpenText, PackageX, CalendarDays, TrendingUp, ShoppingBag, Users, PackageCheck,

@@ -39,6 +39,33 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { StoreDataProvider } from "./contexts/StoreDataContext";
 import { useTheme } from "./contexts/ThemeContext";
 import logo from "./assets/logo-solucelll.png";
+import { isDemoMode, enterDemoMode, exitDemoMode, DEMO_STORE, DEMO_USER } from "./lib/demoMode";
+import { resetDemoData } from "./lib/firestore";
+
+const ADMIN_PERMISSIONS = ["dashboard", "products", "sales", "fiado", "fechamento", "maintenance", "reports", "settings"];
+
+const DEMO_USER_INFO = {
+    email: DEMO_USER,
+    storeEmail: DEMO_STORE,
+    role: "Administrador (demo)",
+    permissions: ADMIN_PERMISSIONS,
+};
+
+// No modo demonstração a impressora local (printer-server) não existe:
+// simula a resposta para os fluxos de impressão seguirem normalmente.
+let printStubInstalled = false;
+function installDemoPrintStub() {
+    if (printStubInstalled) return;
+    printStubInstalled = true;
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = (input, init) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        if (isDemoMode() && url.startsWith("http://localhost:3333")) {
+            return Promise.resolve(new Response(JSON.stringify({ success: true, demo: true }), { status: 200, headers: { "Content-Type": "application/json" } }));
+        }
+        return originalFetch(input, init);
+    };
+}
 
 interface UserInfo {
     email: string;
@@ -116,15 +143,14 @@ function ThemeToggle({ className = "" }: { className?: string }) {
 type AuthState = "checking" | "signed-out" | "signed-in";
 
 function App() {
-    const [currentPage, setCurrentPage] = useState("sales");
-    const [authState, setAuthState] = useState<AuthState>("checking");
+    const [currentPage, setCurrentPage] = useState(() => (isDemoMode() ? "dashboard" : "sales"));
+    const [authState, setAuthState] = useState<AuthState>(() => (isDemoMode() ? "signed-in" : "checking"));
     const [authError, setAuthError] = useState("");
     const [moreOpen, setMoreOpen] = useState(false);
-    const [currentUser, setCurrentUser] = useState<UserInfo>({
-        email: "",
-        role: "",
-        storeEmail: "",
-        permissions: [],
+    // Recarregou a página durante a demonstração: continua na demo
+    const [currentUser, setCurrentUser] = useState<UserInfo>(() => {
+        if (isDemoMode()) { installDemoPrintStub(); return DEMO_USER_INFO; }
+        return { email: "", role: "", storeEmail: "", permissions: [] };
     });
 
     const [isNewSaleModalOpen, setIsNewSaleModalOpen] = useState(false);
@@ -137,9 +163,21 @@ function App() {
         }
     };
 
+    // ==================== MODO DEMONSTRAÇÃO ====================
+    const startDemo = (fresh: boolean) => {
+        enterDemoMode();
+        if (fresh) resetDemoData();
+        installDemoPrintStub();
+        setCurrentUser(DEMO_USER_INFO);
+        setAuthError("");
+        setCurrentPage("dashboard");
+        setAuthState("signed-in");
+    };
+
     // ==================== AUTENTICAÇÃO + PERMISSÕES ====================
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (isDemoMode()) return;
             if (!user) {
                 setAuthState("signed-out");
                 return;
@@ -162,7 +200,7 @@ function App() {
                 storeEmail: STORE_MAPPING[email] || email,
                 role: isAdmin ? "Administrador" : "Funcionário",
                 permissions: isAdmin
-                    ? ["dashboard", "products", "sales", "fiado", "fechamento", "maintenance", "reports", "settings"]
+                    ? ADMIN_PERMISSIONS
                     : ["sales", "fiado", "fechamento", "maintenance", "settings"],
             });
             setAuthError("");
@@ -172,8 +210,16 @@ function App() {
         return () => unsubscribe();
     }, []);
 
+    const demoActive = isDemoMode();
+
     const handleLogout = () => {
         setMoreOpen(false);
+        if (isDemoMode()) {
+            exitDemoMode();
+            setCurrentPage("sales");
+            setAuthState(auth.currentUser ? "signed-in" : "signed-out");
+            return;
+        }
         signOut(auth);
     };
 
@@ -215,7 +261,7 @@ function App() {
     }
 
     if (authState === "signed-out") {
-        return <LoginPage externalError={authError} onClearError={() => setAuthError("")} />;
+        return <LoginPage externalError={authError} onClearError={() => setAuthError("")} onDemo={() => startDemo(true)} />;
     }
 
     return (
@@ -309,6 +355,13 @@ function App() {
                         </button>
                     </header>
 
+                    {demoActive && (
+                        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-primary px-4 py-2 text-center text-xs sm:text-sm text-white">
+                            <span><strong className="font-semibold">Modo demonstração</strong> · dados fictícios — fique à vontade para testar, nada é salvo de verdade.</span>
+                            <button onClick={handleLogout} className="rounded-md bg-white/20 px-2.5 py-0.5 font-medium hover:bg-white/30">Sair da demo</button>
+                        </div>
+                    )}
+
                     <div className="flex-1 w-full max-w-full overflow-x-hidden pb-28 lg:pb-0">
                         <ErrorBoundary key={currentPage} onReset={() => setCurrentPage("sales")}>
                             {renderPage()}
@@ -380,7 +433,7 @@ function App() {
                                 onClick={handleLogout}
                                 className="mt-4 w-full h-12 rounded-2xl border border-line flex items-center justify-center gap-2 text-sm font-medium text-danger hover:bg-danger-soft"
                             >
-                                <LogOut className="w-4 h-4" /> Sair da conta
+                                <LogOut className="w-4 h-4" /> {demoActive ? "Sair da demonstração" : "Sair da conta"}
                             </button>
                         </div>
                     </div>

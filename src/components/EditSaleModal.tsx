@@ -1,7 +1,7 @@
 // components/EditSaleModal.tsx
 import React, { useState, useEffect } from "react";
 import { X, Save, CreditCard, Smartphone, DollarSign, Layers3, Plus, Trash2 } from "lucide-react";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc } from "../lib/firestore";
 import { db } from "../lib/firebase";
 
 interface MultiplePayment {

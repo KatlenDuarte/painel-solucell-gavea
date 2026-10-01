@@ -7,6 +7,7 @@ import { auth } from "../lib/firebase";
 import { Lock, Key, AlertTriangle, CheckCircle, X, Palette, Sun, Moon, Shield } from "lucide-react";
 import { Page, PageHeader, Card, CardHeader, Button, IconButton } from "../components/ui";
 import { useTheme } from "../contexts/ThemeContext";
+import { isDemoMode } from "../lib/demoMode";
 
 // Tipagem
 export type TargetSetting = "security_pin" | "store_password";
@@ -38,6 +39,10 @@ export default function SettingsPage({ currentPin, onPinChange }: SettingsPagePr
     // Funções de controle do Modal
     const startVerification = (target: TargetSetting) => {
         setError(null);
+        if (isDemoMode()) {
+            setError("Alteração de PIN e senha não está disponível no modo demonstração.");
+            return;
+        }
         setSuccess(null);
         // Limpa campos e inicia o passo de confirmação antes da alteração real
         setSecurityPin(currentPin || "0000");

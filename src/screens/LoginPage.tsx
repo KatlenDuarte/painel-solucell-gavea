@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../lib/firebase";
-import { Sun, Moon, Check, Loader2 } from "lucide-react";
+import { Sun, Moon, Check, Loader2, PlayCircle } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import logo from "../assets/logo-solucelll.png";
 
 interface LoginPageProps {
   externalError?: string;
   onClearError?: () => void;
+  onDemo?: () => void;
 }
 
 const AUTH_ERRORS: Record<string, string> = {
@@ -21,7 +22,7 @@ const AUTH_ERRORS: Record<string, string> = {
   "auth/network-request-failed": "Sem conexão com o servidor. Verifique a internet e tente novamente.",
 };
 
-export default function LoginPage({ externalError, onClearError }: LoginPageProps) {
+export default function LoginPage({ externalError, onClearError, onDemo }: LoginPageProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -124,6 +125,27 @@ export default function LoginPage({ externalError, onClearError }: LoginPageProp
             {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
             {isLoading ? "Entrando..." : "Entrar"}
           </button>
+
+          {onDemo && (
+            <>
+              <div className="my-6 flex items-center gap-3 text-xs text-fg-faint">
+                <span className="h-px flex-1 bg-line" />
+                ou
+                <span className="h-px flex-1 bg-line" />
+              </div>
+              <button
+                type="button"
+                onClick={onDemo}
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-line bg-surface text-sm font-semibold text-fg shadow-[var(--ui-shadow)] transition-colors hover:bg-hover"
+              >
+                <PlayCircle className="h-[18px] w-[18px] text-primary" />
+                Ver demonstração
+              </button>
+              <p className="mt-2.5 text-center text-xs text-fg-subtle">
+                Acesse o sistema completo com dados fictícios, sem precisar de login.
+              </p>
+            </>
+          )}
         </form>
       </main>
     </div>

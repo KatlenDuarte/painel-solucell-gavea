@@ -5,7 +5,7 @@ import React, { useState } from "react";
 import { Undo2, X } from "lucide-react";
 
 // 🔥 FIREBASE - Importamos runTransaction
-import { doc, runTransaction } from "firebase/firestore";
+import { doc, runTransaction } from "../lib/firestore";
 import { db } from "../lib/firebase";
 
 interface RefundConfirmationModalProps {

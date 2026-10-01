@@ -1,4 +1,4 @@
-import { collection, doc, setDoc, serverTimestamp, updateDoc, getDoc } from "firebase/firestore";
+import { collection, doc, setDoc, serverTimestamp, updateDoc, getDoc } from "../lib/firestore";
 import { db } from "../lib/firebase";
 
 // Define a interface para os itens de venda

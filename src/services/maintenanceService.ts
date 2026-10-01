@@ -9,7 +9,7 @@ import {
   where,
   onSnapshot,
   type DocumentData,
-} from "firebase/firestore";
+} from "../lib/firestore";
 import { db } from "../lib/firebase";
 
 export const maintenanceCollection = collection(db, "maintenances");

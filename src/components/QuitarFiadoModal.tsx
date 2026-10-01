@@ -13,7 +13,7 @@ import {
     doc,
     updateDoc,
     serverTimestamp
-} from "firebase/firestore";
+} from "../lib/firestore";
 
 import { db } from "../lib/firebase";
 
