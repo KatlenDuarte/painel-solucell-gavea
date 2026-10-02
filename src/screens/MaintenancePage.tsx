@@ -21,6 +21,8 @@ import {
     Printer,
     ChevronsRight
 } from "lucide-react";
+import DateRangeFilter from "../components/DateRangeFilter";
+import { rangeBounds, toInputDate, type DateRange } from "../lib/dateRange";
 import { Page, PageHeader, Card, StatCard, Button, IconButton, Badge, Segmented, SearchInput, EmptyState, LoadingState, ListRow, type Tone } from "../components/ui";
 import { formatBRL, initials } from "../lib/format";
 
@@ -73,10 +75,13 @@ export default function MaintenancePage() {
 
     // períodos
     const [period, setPeriod] = useState<
-        "today" | "week" | "month" | "year" | "custom_day" | "custom_month"
+        "today" | "week" | "month" | "year" | "custom_range" | "custom_month"
     >("today");
 
-    const [selectedDay, setSelectedDay] = useState("");
+    const [range, setRange] = useState<DateRange>(() => {
+        const now = new Date();
+        return { from: toInputDate(new Date(now.getFullYear(), now.getMonth(), 1)), to: toInputDate(now) };
+    });
     const [selectedMonth, setSelectedMonth] = useState(
         new Date().getMonth()
     );
@@ -233,20 +238,12 @@ export default function MaintenancePage() {
                 );
                 break;
 
-            case "custom_day":
-                if (!selectedDay) {
-                    startDate = new Date(0);
-                } else {
-                    const [y, m, d] = selectedDay
-                        .split("-")
-                        .map(Number);
-
-                    startDate = new Date(y, m - 1, d, 0, 0, 0);
-
-                    endDate = new Date(y, m - 1, d, 23, 59, 59);
-                }
-
+            case "custom_range": {
+                const bounds = rangeBounds(range);
+                startDate = bounds.start ?? new Date(0);
+                endDate = bounds.end;
                 break;
+            }
 
             default:
                 startDate = new Date(0);
@@ -296,7 +293,7 @@ export default function MaintenancePage() {
     }, [
         maintenances,
         period,
-        selectedDay,
+        range,
         selectedMonth,
         selectedYear,
         searchTerm,
@@ -467,25 +464,24 @@ export default function MaintenancePage() {
             <Card padded={false} className="overflow-hidden">
                 {/* Filtros */}
                 <div className="space-y-3 border-b border-line p-4">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                         <div className="flex flex-wrap items-center gap-2">
                             <Segmented
-                                value={period === "custom_day" || period === "custom_month" ? ("" as "today") : period}
-                                onChange={(v) => { setPeriod(v); setSelectedDay(""); }}
+                                value={period === "custom_month" ? ("" as "today") : period}
+                                onChange={(v) => setPeriod(v)}
                                 options={[
                                     { value: "today", label: "Hoje" },
                                     { value: "week", label: "7 dias" },
                                     { value: "month", label: "Mês" },
                                     { value: "year", label: "Ano" },
+                                    { value: "custom_range", label: "Período" },
                                 ]}
                             />
-                            <input
-                                type="date"
-                                value={selectedDay}
-                                onChange={(e) => { setSelectedDay(e.target.value); setPeriod("custom_day"); }}
-                                className="ui-input w-[170px]"
-                                aria-label="Data específica"
-                            />
+                            {period === "custom_range" && (
+                                <div className="basis-full pt-1">
+                                    <DateRangeFilter value={range} onChange={setRange} />
+                                </div>
+                            )}
                         </div>
                         <SearchInput icon={Search} value={searchTerm} onChange={setSearchTerm} placeholder="Cliente, aparelho, defeito..." className="w-full lg:w-72" />
                     </div>

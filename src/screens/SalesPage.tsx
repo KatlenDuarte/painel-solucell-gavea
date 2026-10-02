@@ -7,6 +7,8 @@ import {
 } from "lucide-react";
 import { Page, PageHeader, Card, StatCard, Button, IconButton, Badge, Segmented, SearchInput, EmptyState, LoadingState, ListRow } from "../components/ui";
 import { formatBRL } from "../lib/format";
+import DateRangeFilter from "../components/DateRangeFilter";
+import { inDateRange, describeRange, toInputDate, type DateRange } from "../lib/dateRange";
 
 import { useStoreData } from "../contexts/StoreDataContext";
 
@@ -62,7 +64,10 @@ interface SalesProps {
 
 export default function Sales({ storeEmail }: SalesProps) {
     const [filter, setFilter] = useState<"today" | "week" | "month" | "custom">("today");
-    const [customDate, setCustomDate] = useState<string>(new Date().toISOString().split("T")[0]);
+    const [range, setRange] = useState<DateRange>(() => {
+        const now = new Date();
+        return { from: toInputDate(new Date(now.getFullYear(), now.getMonth(), 1)), to: toInputDate(now) };
+    });
 
     const [selectedMethodCard, setSelectedMethodCard] = useState<"PIX" | "CARTAO" | "DINHEIRO" | "TOTAL" | null>(null);
 
@@ -208,14 +213,7 @@ export default function Sales({ storeEmail }: SalesProps) {
         if (filter === "month") {
             return saleDate.getMonth() === now.getMonth() && saleDate.getFullYear() === now.getFullYear();
         }
-        if (filter === "custom" && customDate) {
-            const [year, month, day] = customDate.split("-").map(Number);
-            return (
-                saleDate.getDate() === day &&
-                saleDate.getMonth() === month - 1 &&
-                saleDate.getFullYear() === year
-            );
-        }
+        if (filter === "custom") return inDateRange(saleDate, range);
         return true;
     });
 
@@ -320,7 +318,7 @@ export default function Sales({ storeEmail }: SalesProps) {
 
     const money = (v: number) => (hideValues ? "R$ ••••" : formatBRL(v));
 
-    const periodLabel = filter === "today" ? "hoje" : filter === "week" ? "nos últimos 7 dias" : filter === "month" ? "neste mês" : "na data selecionada";
+    const periodLabel = filter === "today" ? "hoje" : filter === "week" ? "nos últimos 7 dias" : filter === "month" ? "neste mês" : describeRange(range);
 
     const statusBadge = (sale: SaleWithClient) => {
         if (isLoss(sale)) return <Badge tone="danger" dot>Perda</Badge>;
@@ -409,7 +407,7 @@ export default function Sales({ storeEmail }: SalesProps) {
 
             <Card padded={false} className="overflow-hidden">
                 {/* Barra de filtros */}
-                <div className="flex flex-col gap-3 border-b border-line p-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-col gap-3 border-b border-line p-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="flex flex-wrap items-center gap-2">
                         <Segmented
                             value={filter}
@@ -418,16 +416,13 @@ export default function Sales({ storeEmail }: SalesProps) {
                                 { value: "today", label: "Hoje" },
                                 { value: "week", label: "7 dias" },
                                 { value: "month", label: "Mês" },
-                                { value: "custom", label: "Data" },
+                                { value: "custom", label: "Período" },
                             ]}
                         />
                         {filter === "custom" && (
-                            <input
-                                type="date"
-                                value={customDate}
-                                onChange={(e) => { setCustomDate(e.target.value); setSelectedMethodCard(null); }}
-                                className="ui-input w-[170px]"
-                            />
+                            <div className="basis-full pt-1">
+                                <DateRangeFilter value={range} onChange={(r) => { setRange(r); setSelectedMethodCard(null); }} />
+                            </div>
                         )}
                         {selectedMethodCard && (
                             <Badge tone="primary">
