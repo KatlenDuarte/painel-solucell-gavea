@@ -305,8 +305,7 @@ function App() {
                                                     : "text-white/60 hover:text-white hover:bg-white/[0.05]"
                                                     }`}
                                             >
-                                                {active && <span className="absolute -left-3 top-2 bottom-2 w-1 rounded-r-full bg-primary" />}
-                                                <Icon className={`w-[18px] h-[18px] ${active ? "text-primary" : ""}`} />
+                                                <Icon className={`w-[18px] h-[18px] ${active ? "text-white" : "text-white/45"}`} />
                                                 <span>{item.name}</span>
                                             </button>
                                         );
@@ -318,7 +317,7 @@ function App() {
 
                     <div className="p-3 border-t border-white/[0.08] shrink-0">
                         <div className="flex items-center gap-3 rounded-xl p-2">
-                            <div className="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center text-sm font-semibold uppercase shrink-0">
+                            <div className="w-9 h-9 rounded-full bg-white/10 text-white flex items-center justify-center text-sm font-semibold uppercase shrink-0">
                                 {userName.charAt(0)}
                             </div>
                             <div className="min-w-0 flex-1">
@@ -348,7 +347,7 @@ function App() {
                         <ThemeToggle className="text-white/70 hover:bg-white/10" />
                         <button
                             onClick={() => setMoreOpen(true)}
-                            className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-sm font-semibold uppercase"
+                            className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center text-sm font-semibold uppercase"
                             aria-label="Conta e menu"
                         >
                             {userName.charAt(0)}
@@ -356,9 +355,9 @@ function App() {
                     </header>
 
                     {demoActive && (
-                        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-primary px-4 py-2 text-center text-xs sm:text-sm text-white">
-                            <span><strong className="font-semibold">Modo demonstração</strong> · dados fictícios — fique à vontade para testar, nada é salvo de verdade.</span>
-                            <button onClick={handleLogout} className="rounded-md bg-white/20 px-2.5 py-0.5 font-medium hover:bg-white/30">Sair da demo</button>
+                        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 border-b border-line bg-surface px-4 py-2 text-center text-xs sm:text-sm text-fg-muted">
+                            <span className="inline-flex items-center gap-2"><span className="rounded-md border border-warning/25 bg-warning-soft px-1.5 py-0.5 text-[11px] font-semibold text-warning">DEMO</span> Dados fictícios — fique à vontade para testar, nada é salvo de verdade.</span>
+                            <button onClick={handleLogout} className="rounded-lg border border-line px-2.5 py-1 text-xs font-medium hover:bg-hover">Sair da demo</button>
                         </div>
                     )}
 
@@ -378,7 +377,7 @@ function App() {
                         <div className="flex items-start justify-center">
                             <button
                                 onClick={() => setIsNewSaleModalOpen(true)}
-                                className="-mt-5 w-14 h-14 rounded-2xl bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/30 active:scale-95 transition-transform"
+                                className="-mt-5 w-14 h-14 rounded-2xl bg-primary text-white flex items-center justify-center shadow-[var(--ui-shadow-lg)] ring-4 ring-bg active:scale-95 transition-transform"
                                 aria-label="Nova operação"
                             >
                                 <Plus className="w-6 h-6" strokeWidth={2.5} />
@@ -402,7 +401,7 @@ function App() {
                         <div className="absolute inset-x-0 bottom-0 rounded-t-3xl bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl animate-sheet">
                             <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-line-strong" />
                             <div className="mb-5 flex items-center gap-3">
-                                <div className="w-11 h-11 rounded-full bg-primary text-white flex items-center justify-center font-semibold uppercase">
+                                <div className="w-11 h-11 rounded-full border border-line bg-subtle text-fg-muted flex items-center justify-center font-semibold uppercase">
                                     {userName.charAt(0)}
                                 </div>
                                 <div className="min-w-0 flex-1">
@@ -421,7 +420,7 @@ function App() {
                                         <button
                                             key={item.id}
                                             onClick={() => handleNavigation(item.id)}
-                                            className={`flex flex-col items-center justify-center gap-2 rounded-2xl border px-2 py-4 text-xs font-medium transition-colors ${active ? "border-primary bg-primary-soft text-primary-text" : "border-line text-fg-muted hover:bg-hover"}`}
+                                            className={`flex flex-col items-center justify-center gap-2 rounded-2xl border px-2 py-4 text-xs font-medium transition-colors ${active ? "border-primary/40 bg-primary-soft text-primary-text" : "border-line text-fg-muted hover:bg-hover"}`}
                                         >
                                             <Icon className="w-5 h-5" />
                                             {item.short || item.name}

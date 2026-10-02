@@ -1,12 +1,15 @@
 // src/screens/DashboardPage.tsx
 import { useState, useMemo } from "react";
 import type { Timestamp } from "../lib/firestore";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from "recharts";
+
+// Cores calmas e distintas para cada forma de pagamento
+const MIX_COLORS: Record<string, string> = { PIX: "#2a9d8f", "Cartão": "#5b7bd5", Dinheiro: "#c9a24a", Fiado: "#d9707f" };
 import {
     Wallet, Receipt, BookOpenText, PackageX, CalendarDays, TrendingUp, ShoppingBag, Users, PackageCheck,
 } from "lucide-react";
 import { useStoreData } from "../contexts/StoreDataContext";
-import { Page, PageHeader, Card, CardHeader, StatCard, Segmented, EmptyState, LoadingState, Badge, Meter } from "../components/ui";
+import { Page, PageHeader, Card, CardHeader, StatCard, Segmented, EmptyState, LoadingState, Badge } from "../components/ui";
 import { formatBRL, formatDate, formatTime, initials } from "../lib/format";
 
 interface Product {
@@ -249,7 +252,9 @@ export default function DashboardPage() {
                                     itemStyle={{ color: "var(--ui-fg)" }}
                                     formatter={(v) => [formatBRL(Number(v)), "Faturamento"]}
                                 />
-                                <Bar dataKey="total" fill="var(--ui-primary)" radius={[4, 4, 0, 0]} maxBarSize={36} />
+                                <Bar dataKey="total" radius={[4, 4, 0, 0]} maxBarSize={36}>
+                                    {chartData.map((_, i) => <Cell key={i} fill="var(--ui-primary)" fillOpacity={i === chartData.length - 1 ? 1 : 0.4} />)}
+                                </Bar>
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
@@ -264,7 +269,7 @@ export default function DashboardPage() {
                             (Object.entries(stats.mix) as [string, number][]).map(([method, value]) => (
                                 <div key={method} className="space-y-1.5">
                                     <div className="flex items-center justify-between text-sm">
-                                        <span className="text-fg-muted">{method}</span>
+                                        <span className="flex items-center gap-2 text-fg-muted"><span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: MIX_COLORS[method] ?? "var(--ui-fg-faint)" }} />{method}</span>
                                         <span className="font-medium text-fg tabular">
                                             {formatBRL(value)}
                                             <span className="ml-2 text-xs font-normal text-fg-subtle">
@@ -272,7 +277,9 @@ export default function DashboardPage() {
                                             </span>
                                         </span>
                                     </div>
-                                    <Meter value={value} max={mixTotal} />
+                                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-hover">
+                                        <div className="h-full rounded-full transition-all" style={{ width: `${mixTotal ? (value / mixTotal) * 100 : 0}%`, background: MIX_COLORS[method] ?? "var(--ui-fg-faint)" }} />
+                                    </div>
                                 </div>
                             ))
                         )}

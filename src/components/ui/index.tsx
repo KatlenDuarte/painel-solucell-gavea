@@ -52,7 +52,7 @@ export function CardHeader({ title, description, action, icon: Icon, className }
         <div className={cx("flex items-start justify-between gap-3 px-5 sm:px-6 py-4 border-b border-line", className)}>
             <div className="flex items-start gap-3 min-w-0">
                 {Icon && (
-                    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary-text">
+                    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-line bg-subtle text-fg-subtle">
                         <Icon className="h-4 w-4" />
                     </div>
                 )}
@@ -91,9 +91,9 @@ export function Badge({ tone = "neutral", children, dot, className }: { tone?: T
 
 /* ------------------------------------------------------------------ Stat */
 
-const toneSolid: Record<Tone, string> = {
-    neutral: "bg-fg-subtle", primary: "bg-primary", success: "bg-success",
-    warning: "bg-warning", danger: "bg-danger", info: "bg-info",
+const toneIcon: Record<Tone, string> = {
+    neutral: "text-fg-subtle", primary: "text-primary-text", success: "text-success",
+    warning: "text-warning", danger: "text-danger", info: "text-info",
 };
 
 export function StatCard({ label, value, hint, icon: Icon, tone = "neutral", onClick, active, className }: {
@@ -112,21 +112,20 @@ export function StatCard({ label, value, hint, icon: Icon, tone = "neutral", onC
             onClick={onClick}
             className={cx(
                 "group relative overflow-hidden text-left rounded-2xl border bg-surface p-4 sm:p-5 shadow-[var(--ui-shadow)] transition-all",
-                active ? "border-primary ring-4 ring-primary/10" : "border-line",
+                active ? "border-primary/50 ring-[3px] ring-primary/10" : "border-line",
                 onClick && !active && "hover:border-line-strong hover:-translate-y-px",
                 className
             )}
         >
-            <span className={cx("absolute inset-x-0 top-0 h-[3px] opacity-80", toneSolid[tone])} />
             <div className="flex items-start gap-3">
                 {Icon && (
-                    <span className={cx("hidden sm:flex h-11 w-11 shrink-0 items-center justify-center rounded-xl", toneSoft[tone])}>
-                        <Icon className="h-5 w-5" />
+                    <span className="hidden sm:flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-line bg-subtle">
+                        <Icon className={cx("h-5 w-5", toneIcon[tone])} />
                     </span>
                 )}
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 text-[13px] font-medium text-fg-subtle">
-                        {Icon && <Icon className={cx("sm:hidden h-3.5 w-3.5", tone === "neutral" ? "" : "opacity-80")} />}
+                        {Icon && <Icon className={cx("sm:hidden h-3.5 w-3.5", toneIcon[tone])} />}
                         <span className="truncate">{label}</span>
                     </div>
                     <div className="mt-1 text-lg sm:text-2xl font-bold tracking-tight text-fg tabular truncate">{value}</div>
@@ -142,7 +141,7 @@ export function StatCard({ label, value, hint, icon: Icon, tone = "neutral", onC
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "success";
 
 const buttonVariant: Record<ButtonVariant, string> = {
-    primary: "bg-primary text-white hover:bg-primary-hover border-transparent shadow-sm shadow-primary/25",
+    primary: "bg-primary text-white hover:bg-primary-hover border-transparent shadow-[var(--ui-shadow)]",
     secondary: "bg-surface text-fg border-line hover:bg-hover shadow-[var(--ui-shadow)]",
     ghost: "bg-transparent text-fg-muted border-transparent hover:bg-hover hover:text-fg",
     danger: "bg-surface text-danger border-line hover:bg-danger-soft",
@@ -253,7 +252,7 @@ export function EmptyState({ icon: Icon, title, description, action, className }
 }) {
     return (
         <div className={cx("flex flex-col items-center justify-center text-center px-6 py-14", className)}>
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-soft text-primary-text">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-line bg-subtle text-fg-subtle">
                 <Icon className="h-6 w-6" />
             </div>
             <p className="mt-4 text-[15px] font-semibold text-fg">{title}</p>

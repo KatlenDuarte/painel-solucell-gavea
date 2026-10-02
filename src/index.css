@@ -60,10 +60,10 @@
   --ui-fg-faint: #94a3b8;
   --ui-nav: #0b1424;
   --ui-nav-fg: #ffffff;
-  --ui-primary: #f26419;
-  --ui-primary-hover: #d9520c;
-  --ui-primary-soft: rgb(242 100 25 / 0.1);
-  --ui-primary-text: #c4470a;
+  --ui-primary: #d4622e;
+  --ui-primary-hover: #b9521f;
+  --ui-primary-soft: rgb(212 98 46 / 0.08);
+  --ui-primary-text: #a9481c;
   --ui-success: #059669;
   --ui-success-soft: rgb(5 150 105 / 0.1);
   --ui-warning: #b45309;
@@ -224,10 +224,10 @@
   --ui-fg-faint: #5b6a82;
   --ui-nav: #0b1220;
   --ui-nav-fg: #ffffff;
-  --ui-primary: #f97316;
-  --ui-primary-hover: #fb8a3c;
-  --ui-primary-soft: rgb(249 115 22 / 0.14);
-  --ui-primary-text: #fb923c;
+  --ui-primary: #d9703f;
+  --ui-primary-hover: #e3845a;
+  --ui-primary-soft: rgb(217 112 63 / 0.12);
+  --ui-primary-text: #eba07c;
   --ui-success: #34d399;
   --ui-success-soft: rgb(52 211 153 / 0.12);
   --ui-warning: #fbbf24;
@@ -277,7 +277,7 @@ html.theme-transition *::after {
 @layer components {
   /* Campos de formulário padrão */
   .ui-input {
-    @apply w-full h-10 rounded-xl border border-line bg-surface px-3 text-sm text-fg placeholder:text-fg-faint outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15 disabled:opacity-60;
+    @apply w-full h-10 rounded-xl border border-line bg-surface px-3 text-sm text-fg placeholder:text-fg-faint outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/12 disabled:opacity-60;
   }
   select.ui-input { @apply pr-8 cursor-pointer; }
   .ui-label { @apply block text-xs font-medium text-fg-muted mb-1.5; }
@@ -321,6 +321,6 @@ html.theme-transition *::after {
 }
 ::-webkit-scrollbar-track { background: transparent; }
 
-::selection { background: color-mix(in oklab, var(--ui-primary) 25%, transparent); }
+::selection { background: color-mix(in oklab, var(--ui-primary) 18%, transparent); }
 
 input[type="date"], input[type="month"], input[type="time"] { color-scheme: inherit; }
