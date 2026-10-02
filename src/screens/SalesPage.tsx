@@ -332,6 +332,7 @@ export default function Sales({ storeEmail }: SalesProps) {
         <Page>
             <RefundConfirmationModal
                 saleId={refundSaleId}
+                items={sales.find(s => s.id === refundSaleId)?.items}
                 onClose={() => {
                     setIsModalOpen(false);
                     setRefundSaleId(null);
