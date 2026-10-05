@@ -1,21 +1,18 @@
 import { useState, useEffect } from "react";
-import {
-    LayoutDashboard,
-    Package,
-    ShoppingCart,
-    BookOpenText,
-    Receipt,
-    Wrench,
-    BarChart3,
-    Settings,
-    Plus,
-    LogOut,
-    Sun,
-    Moon,
-    Grid2x2,
-    X,
-    Loader2,
-    type LucideIcon,
+import { 
+  LayoutDashboard, 
+  Package, 
+  ShoppingCart, 
+  BookOpenText, 
+  Receipt, 
+  Wrench, 
+  BarChart3, 
+  Settings, 
+  X, 
+  Menu, 
+  Plus, 
+  LogOut, 
+  PenLine 
 } from "lucide-react";
 
 // Imports das telas
@@ -32,40 +29,10 @@ import SalesFuncionarioPage from "./screens/SalesFuncionarioPage";  // Funcioná
 
 // Import do modal de nova venda
 import NewSaleModal from "./components/NewSaleModal";
-import ErrorBoundary from "./components/ErrorBoundary";
 
 import { auth } from "./lib/firebase";
-import { onAuthStateChanged, signOut } from "firebase/auth";
-import { StoreDataProvider } from "./contexts/StoreDataContext";
-import { useTheme } from "./contexts/ThemeContext";
+import { onAuthStateChanged } from "firebase/auth";
 import logo from "./assets/logo-solucelll.png";
-import { isDemoMode, enterDemoMode, exitDemoMode, DEMO_STORE, DEMO_USER } from "./lib/demoMode";
-import { resetDemoData } from "./lib/firestore";
-
-const ADMIN_PERMISSIONS = ["dashboard", "products", "sales", "fiado", "fechamento", "maintenance", "reports", "settings"];
-
-const DEMO_USER_INFO = {
-    email: DEMO_USER,
-    storeEmail: DEMO_STORE,
-    role: "Administrador (demo)",
-    permissions: ADMIN_PERMISSIONS,
-};
-
-// No modo demonstração a impressora local (printer-server) não existe:
-// simula a resposta para os fluxos de impressão seguirem normalmente.
-let printStubInstalled = false;
-function installDemoPrintStub() {
-    if (printStubInstalled) return;
-    printStubInstalled = true;
-    const originalFetch = window.fetch.bind(window);
-    window.fetch = (input, init) => {
-        const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-        if (isDemoMode() && url.startsWith("http://localhost:3333")) {
-            return Promise.resolve(new Response(JSON.stringify({ success: true, demo: true }), { status: 200, headers: { "Content-Type": "application/json" } }));
-        }
-        return originalFetch(input, init);
-    };
-}
 
 interface UserInfo {
     email: string;
@@ -74,16 +41,7 @@ interface UserInfo {
     permissions: string[];
 }
 
-interface NavItem {
-    id: string;
-    name: string;
-    short?: string;
-    icon: LucideIcon;
-}
-
 // ==================== CONFIGURAÇÃO ====================
-const ADMIN_EMAIL = "kluivert@solucell.com";
-
 const VALID_STORES = [
     "kluivert@solucell.com",
     "funcionarios@solucell.com",
@@ -94,153 +52,102 @@ const STORE_MAPPING: Record<string, string> = {
     "funcionarios@solucell.com": "kluivert@solucell.com",
 };
 
-const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
-    {
-        title: "Operação",
-        items: [
-            { id: "sales", name: "Vendas", icon: ShoppingCart },
-            { id: "fiado", name: "Fiado", icon: BookOpenText },
-            { id: "fechamento", name: "Fechamento de caixa", short: "Caixa", icon: Receipt },
-            { id: "maintenance", name: "Manutenção", short: "O.S.", icon: Wrench },
-        ],
-    },
-    {
-        title: "Gestão",
-        items: [
-            { id: "dashboard", name: "Dashboard", short: "Início", icon: LayoutDashboard },
-            { id: "products", name: "Produtos", icon: Package },
-            { id: "reports", name: "Relatórios", icon: BarChart3 },
-        ],
-    },
-    {
-        title: "Sistema",
-        items: [
-            { id: "settings", name: "Configurações", short: "Ajustes", icon: Settings },
-        ],
-    },
-];
-
-const ALL_NAV_ITEMS = NAV_SECTIONS.flatMap(section => section.items);
-
-/** Itens fixos da barra inferior no celular (o restante fica em "Mais"). */
-const MOBILE_PRIMARY = ["sales", "fiado", "fechamento", "maintenance"];
-
-function ThemeToggle({ className = "" }: { className?: string }) {
-    const { theme, toggleTheme } = useTheme();
-    const isDark = theme === "dark";
-    return (
-        <button
-            onClick={toggleTheme}
-            title={isDark ? "Mudar para tema claro" : "Mudar para tema escuro"}
-            aria-label={isDark ? "Mudar para tema claro" : "Mudar para tema escuro"}
-            className={`flex items-center justify-center w-9 h-9 rounded-xl transition-colors ${className}`}
-        >
-            {isDark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
-        </button>
-    );
-}
-
-type AuthState = "checking" | "signed-out" | "signed-in";
-
 function App() {
-    const [currentPage, setCurrentPage] = useState(() => (isDemoMode() ? "dashboard" : "sales"));
-    const [authState, setAuthState] = useState<AuthState>(() => (isDemoMode() ? "signed-in" : "checking"));
-    const [authError, setAuthError] = useState("");
-    const [moreOpen, setMoreOpen] = useState(false);
-    // Recarregou a página durante a demonstração: continua na demo
-    const [currentUser, setCurrentUser] = useState<UserInfo>(() => {
-        if (isDemoMode()) { installDemoPrintStub(); return DEMO_USER_INFO; }
-        return { email: "", role: "", storeEmail: "", permissions: [] };
+    const [currentPage, setCurrentPage] = useState("sales");
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [currentUser, setCurrentUser] = useState<UserInfo>({
+        email: "",
+        role: "",
+        storeEmail: "",
+        permissions: [],
     });
 
+    // Estado para o modal de nova venda (corrigido para setIsNewSaleModalOpen)
     const [isNewSaleModalOpen, setIsNewSaleModalOpen] = useState(false);
+
+    // Garante que o tema claro fique ativo no HTML
+    useEffect(() => {
+        document.documentElement.classList.remove("dark");
+    }, []);
+
+    // Controla abertura automática baseado no tamanho da tela
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth >= 768) {
+                setSidebarOpen(true);
+            } else {
+                setSidebarOpen(false);
+            }
+        };
+        window.addEventListener("resize", handleResize);
+        handleResize();
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
 
     const handleNavigation = (pageId: string) => {
         if (currentUser.permissions.includes(pageId)) {
             setCurrentPage(pageId);
-            setMoreOpen(false);
-            window.scrollTo({ top: 0 });
+            if (window.innerWidth < 768) setSidebarOpen(false);
         }
-    };
-
-    // ==================== MODO DEMONSTRAÇÃO ====================
-    const startDemo = (fresh: boolean) => {
-        enterDemoMode();
-        if (fresh) resetDemoData();
-        installDemoPrintStub();
-        setCurrentUser(DEMO_USER_INFO);
-        setAuthError("");
-        setCurrentPage("dashboard");
-        setAuthState("signed-in");
     };
 
     // ==================== AUTENTICAÇÃO + PERMISSÕES ====================
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
-            if (isDemoMode()) return;
-            if (!user) {
-                setAuthState("signed-out");
-                return;
+            if (user && VALID_STORES.includes(user.email || "")) {
+                const storeEmail = STORE_MAPPING[user.email!] || user.email!;
+                const isAdmin = user.email === "kluivert@solucell.com";
+
+                const permissions = isAdmin
+                    ? ["dashboard", "products", "sales", "fiado", "fechamento", "maintenance", "reports", "settings"]
+                    : ["sales", "fiado", "fechamento", "maintenance", "settings"];
+
+                setCurrentUser({
+                    email: user.email || "",
+                    storeEmail: storeEmail,
+                    role: isAdmin ? "Administrador" : "Funcionário",
+                    permissions,
+                });
+                setIsLoggedIn(true);
+
+                if (!isAdmin) setCurrentPage("sales");
+            } else {
+                setIsLoggedIn(false);
             }
-
-            const email = (user.email || "").toLowerCase().trim();
-
-            // Conta autenticada no Firebase, mas sem acesso a este painel:
-            // antes o app voltava ao login em silêncio, parecendo que o login "não funcionava".
-            if (!VALID_STORES.includes(email)) {
-                setAuthError(`A conta ${email || "informada"} não tem acesso a este painel.`);
-                signOut(auth);
-                setAuthState("signed-out");
-                return;
-            }
-
-            const isAdmin = email === ADMIN_EMAIL;
-            setCurrentUser({
-                email,
-                storeEmail: STORE_MAPPING[email] || email,
-                role: isAdmin ? "Administrador" : "Funcionário",
-                permissions: isAdmin
-                    ? ADMIN_PERMISSIONS
-                    : ["sales", "fiado", "fechamento", "maintenance", "settings"],
-            });
-            setAuthError("");
-            setAuthState("signed-in");
-            if (!isAdmin) setCurrentPage("sales");
         });
         return () => unsubscribe();
     }, []);
 
-    const demoActive = isDemoMode();
-
     const handleLogout = () => {
-        setMoreOpen(false);
-        if (isDemoMode()) {
-            exitDemoMode();
-            setCurrentPage("sales");
-            setAuthState(auth.currentUser ? "signed-in" : "signed-out");
-            return;
-        }
-        signOut(auth);
+        auth.signOut();
+        setIsLoggedIn(false);
     };
 
-    const navSections = NAV_SECTIONS
-        .map(section => ({ ...section, items: section.items.filter(item => currentUser.permissions.includes(item.id)) }))
-        .filter(section => section.items.length > 0);
+    const allNavigation = [
+        { id: "dashboard", name: "Dashboard", icon: LayoutDashboard },
+        { id: "products", name: "Produtos", icon: Package },
+        { id: "sales", name: "Vendas", icon: ShoppingCart },
+        { id: "fiado", name: "Fiado", icon: BookOpenText },
+        { id: "fechamento", name: "Fechamento", icon: Receipt },
+        { id: "maintenance", name: "Manutenção", icon: Wrench },
+        { id: "reports", name: "Relatórios", icon: BarChart3 },
+        { id: "settings", name: "Configurações", icon: Settings },
+    ];
 
-    const allowedItems = ALL_NAV_ITEMS.filter(item => currentUser.permissions.includes(item.id));
-    const mobilePrimary = allowedItems.filter(item => MOBILE_PRIMARY.includes(item.id));
-    const currentInPrimary = MOBILE_PRIMARY.includes(currentPage);
-    const userName = currentUser.email.split("@")[0];
+    const navigation = allNavigation.filter(item => currentUser.permissions.includes(item.id));
 
     const renderPage = () => {
+        if (!isLoggedIn) return <LoginPage onLoginSuccess={() => {}} />;
+
         switch (currentPage) {
-            case "dashboard": return <Dashboard />;
-            case "products": return <ProductsContent />;
+            case "dashboard": return <Dashboard storeEmail={currentUser.storeEmail} />;
+            case "products": return <ProductsContent storeEmail={currentUser.storeEmail} />;
             case "sales":
                 return currentUser.role === "Funcionário"
                     ? <SalesFuncionarioPage storeEmail={currentUser.storeEmail} />
                     : <Sales storeEmail={currentUser.storeEmail} />;
-            case "fiado": return <FiadoPage />;
+            case "fiado": return <FiadoPage storeEmail={currentUser.storeEmail} />;
             case "fechamento": return <FechamentoPage storeEmail={currentUser.storeEmail} />;
             case "maintenance": return <Maintenance storeEmail={currentUser.storeEmail} />;
             case "reports": return <Reports storeEmail={currentUser.storeEmail} />;
@@ -251,217 +158,158 @@ function App() {
         }
     };
 
-    if (authState === "checking") {
-        return (
-            <div className="fixed inset-0 flex flex-col items-center justify-center gap-5 bg-bg">
-                <img src={logo} alt="Solucell" className="h-10 w-auto object-contain" />
-                <Loader2 className="h-5 w-5 animate-spin text-primary" />
-            </div>
-        );
-    }
-
-    if (authState === "signed-out") {
-        return <LoginPage externalError={authError} onClearError={() => setAuthError("")} onDemo={() => startDemo(true)} />;
-    }
-
     return (
-        <StoreDataProvider storeEmail={currentUser.storeEmail}>
-            <div className="relative flex w-full min-h-screen bg-bg text-fg-muted font-sans antialiased">
+        <div className="relative bg-[#F8FAFC] text-slate-700 flex w-full min-h-screen font-sans antialiased overflow-x-hidden">
 
-                {/* ================= SIDEBAR (desktop) ================= */}
-                <aside className="hidden lg:flex fixed inset-y-0 left-0 w-[264px] flex-col bg-nav text-nav-fg z-40">
-                    <div className="h-[72px] px-6 flex items-center gap-3 shrink-0">
-                        <img src={logo} className="h-8 w-auto object-contain" alt="Solucell" />
-                        <span className="rounded-md bg-white/10 px-2 py-0.5 text-[11px] font-medium text-white/70">Gávea</span>
-                    </div>
+            {/* DECORAÇÃO DE FUNDO LUMINOSA */}
+            {isLoggedIn && (
+                <div className="pointer-events-none fixed inset-x-0 top-0 h-[300px] overflow-hidden z-0">
+                    <div className="absolute -top-20 left-[10%] w-[380px] h-[380px] rounded-full bg-emerald-400/15 blur-[120px]" />
+                    <div className="absolute -top-24 right-[10%] w-[320px] h-[320px] rounded-full bg-sky-400/15 blur-[120px]" />
+                </div>
+            )}
 
-                    <div className="px-4 pb-4">
+            {/* OVERLAY MOBILE */}
+            {isLoggedIn && sidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-slate-900/30 backdrop-blur-sm z-40 md:hidden transition-opacity duration-300"
+                    onClick={() => setSidebarOpen(false)}
+                />
+            )}
+
+            {/* SIDEBAR LATERAL (TEMA CLARO) */}
+            {isLoggedIn && (
+                <aside className={`fixed top-0 left-0 bottom-0 w-64 bg-white/95 backdrop-blur-md border-r border-slate-200/80 transition-all duration-300 ease-in-out overflow-y-auto flex flex-col z-50
+                    ${sidebarOpen ? "translate-x-0 shadow-xl md:shadow-none" : "-translate-x-full md:translate-x-0"}`}>
+
+                    {/* Logo & Header */}
+                    <div className="p-6 flex items-center justify-between">
+                        <div className="flex flex-col gap-1">
+                            <img src={logo} className="w-32 h-auto object-contain" alt="Logo Solucell" />
+                            <span className="text-[10px] tracking-widest uppercase font-bold text-slate-400 mt-1 pl-0.5">
+                                SISTEMA INTERNO
+                            </span>
+                        </div>
                         <button
-                            onClick={() => setIsNewSaleModalOpen(true)}
-                            className="w-full flex items-center justify-center gap-2 h-11 rounded-xl bg-primary hover:bg-primary-hover text-white text-sm font-semibold transition-colors shadow-lg shadow-black/20"
+                            onClick={() => setSidebarOpen(false)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 md:hidden transition-colors"
                         >
-                            <Plus className="w-[18px] h-[18px]" strokeWidth={2.5} />
-                            Nova operação
+                            <X className="w-5 h-5" />
                         </button>
                     </div>
 
-                    <nav className="flex-1 overflow-y-auto px-3 pb-4 space-y-6">
-                        {navSections.map(section => (
-                            <div key={section.title}>
-                                <p className="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-white/35">
-                                    {section.title}
-                                </p>
-                                <div className="space-y-1">
-                                    {section.items.map(item => {
-                                        const Icon = item.icon;
-                                        const active = currentPage === item.id;
-                                        return (
-                                            <button
-                                                key={item.id}
-                                                onClick={() => handleNavigation(item.id)}
-                                                aria-current={active ? "page" : undefined}
-                                                className={`relative w-full flex items-center gap-3 px-3 h-10 rounded-xl text-sm transition-colors ${active
-                                                    ? "bg-white/[0.08] text-white font-medium"
-                                                    : "text-white/60 hover:text-white hover:bg-white/[0.05]"
-                                                    }`}
-                                            >
-                                                <Icon className={`w-[18px] h-[18px] ${active ? "text-white" : "text-white/45"}`} />
-                                                <span>{item.name}</span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        ))}
-                    </nav>
+                    {/* Navegação */}
+                    <div className="flex-1 px-4 py-2">
+                        <nav className="space-y-1">
+                            {navigation.map((item) => {
+                                const Icon = item.icon;
+                                const active = currentPage === item.id;
+                                return (
+                                    <div key={item.id}>
+                                        <button
+                                            onClick={() => handleNavigation(item.id)}
+                                            className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 group ${
+                                                active
+                                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-xs"
+                                                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
+                                            }`}
+                                        >
+                                            <Icon className={`w-4 h-4 transition-transform duration-200 ${
+                                                active ? "scale-110 text-emerald-600" : "text-slate-400 group-hover:text-slate-600 group-hover:scale-105"
+                                            }`} />
+                                            <span>{item.name}</span>
+                                        </button>
 
-                    <div className="p-3 border-t border-white/[0.08] shrink-0">
-                        <div className="flex items-center gap-3 rounded-xl p-2">
-                            <div className="w-9 h-9 rounded-full bg-white/10 text-white flex items-center justify-center text-sm font-semibold uppercase shrink-0">
-                                {userName.charAt(0)}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <p className="text-sm font-medium text-white truncate capitalize" title={currentUser.email}>{userName}</p>
-                                <p className="text-xs text-white/50 truncate">{currentUser.role}</p>
-                            </div>
-                            <ThemeToggle className="text-white/60 hover:text-white hover:bg-white/10" />
-                            <button
-                                onClick={handleLogout}
-                                title="Sair"
-                                aria-label="Sair"
-                                className="flex items-center justify-center w-9 h-9 rounded-xl text-white/60 hover:text-white hover:bg-white/10 transition-colors"
-                            >
-                                <LogOut className="w-4 h-4" />
-                            </button>
+                                        {/* Atalho Registrar Venda */}
+                                        {item.id === "sales" && (
+                                            <button
+                                                onClick={() => setIsNewSaleModalOpen(true)}
+                                                className="w-full flex items-center gap-3 px-4 py-2 ml-3 mt-1 rounded-xl text-xs font-semibold text-slate-500 hover:text-emerald-700 hover:bg-emerald-50/60 transition-all duration-200 group"
+                                            >
+                                                <PenLine className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-600 transition-transform group-hover:scale-105" />
+                                                <span>Registrar Venda</span>
+                                                <span className="ml-auto bg-emerald-100 text-emerald-700 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase">
+                                                    Novo
+                                                </span>
+                                            </button>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </nav>
+                    </div>
+
+                    {/* Perfil & Logout */}
+                    <div className="p-4 m-4 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-xs">
+                        <div className="mb-3 px-1">
+                            <p className="text-slate-800 font-bold text-xs truncate" title={currentUser.email}>
+                                {currentUser.email.split('@')[0]}
+                            </p>
+                            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider mt-0.5">
+                                {currentUser.role}
+                            </p>
                         </div>
+                        <button
+                            onClick={handleLogout}
+                            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white rounded-xl text-xs font-bold transition-all duration-200 border border-rose-200/80 hover:border-transparent"
+                        >
+                            <LogOut className="w-3.5 h-3.5" /> Sair do Sistema
+                        </button>
                     </div>
                 </aside>
+            )}
 
-                {/* ================= ÁREA PRINCIPAL ================= */}
-                <main className="relative flex-1 flex flex-col min-h-screen w-full min-w-0 lg:pl-[264px]">
+            {/* ÁREA PRINCIPAL */}
+            <main className={`relative z-10 flex-1 flex flex-col min-h-screen w-full transition-all duration-300 ${isLoggedIn ? "md:pl-64" : ""}`}>
+                {isLoggedIn && (
+                    <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/80 px-4 md:px-8 py-3 flex items-center justify-between sticky top-0 z-30 h-16 shadow-2xs">
 
-                    {/* Barra superior (celular/tablet) */}
-                    <header className="lg:hidden sticky top-0 z-30 h-14 flex items-center gap-3 px-4 bg-nav text-white pt-[env(safe-area-inset-top)]">
-                        <img src={logo} className="h-6 w-auto object-contain" alt="Solucell" />
-                        <span className="flex-1" />
-                        <ThemeToggle className="text-white/70 hover:bg-white/10" />
+                        {/* Botão Menu Mobile */}
                         <button
-                            onClick={() => setMoreOpen(true)}
-                            className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center text-sm font-semibold uppercase"
-                            aria-label="Conta e menu"
+                            onClick={() => setSidebarOpen(!sidebarOpen)}
+                            className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 transition-colors md:hidden"
                         >
-                            {userName.charAt(0)}
+                            <Menu className="w-5 h-5" />
                         </button>
-                    </header>
 
-                    {demoActive && (
-                        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 border-b border-line bg-surface px-4 py-2 text-center text-xs sm:text-sm text-fg-muted">
-                            <span className="inline-flex items-center gap-2"><span className="rounded-md border border-warning/25 bg-warning-soft px-1.5 py-0.5 text-[11px] font-semibold text-warning">DEMO</span> Dados fictícios — fique à vontade para testar, nada é salvo de verdade.</span>
-                            <button onClick={handleLogout} className="rounded-lg border border-line px-2.5 py-1 text-xs font-medium hover:bg-hover">Sair da demo</button>
+                        {/* Título */}
+                        <div className="flex-1 md:flex-none pl-3 md:pl-0">
+                            <span className="text-sm font-bold tracking-wide uppercase text-slate-800">
+                                {navigation.find(item => item.id === currentPage)?.name || "Painel"}
+                            </span>
                         </div>
-                    )}
 
-                    <div className="flex-1 w-full max-w-full overflow-x-hidden pb-28 lg:pb-0">
-                        <ErrorBoundary key={currentPage} onReset={() => setCurrentPage("sales")}>
-                            {renderPage()}
-                        </ErrorBoundary>
-                    </div>
-                </main>
-
-                {/* ================= NAVEGAÇÃO INFERIOR (celular) ================= */}
-                <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-line bg-surface/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]">
-                    <div className="relative grid grid-cols-5 h-16">
-                        {mobilePrimary.slice(0, 2).map(item => (
-                            <MobileTab key={item.id} item={item} active={currentPage === item.id} onClick={() => handleNavigation(item.id)} />
-                        ))}
-                        <div className="flex items-start justify-center">
+                        {/* Botão Nova Operação */}
+                        <div className="flex items-center gap-2">
                             <button
                                 onClick={() => setIsNewSaleModalOpen(true)}
-                                className="-mt-5 w-14 h-14 rounded-2xl bg-primary text-white flex items-center justify-center shadow-[var(--ui-shadow-lg)] ring-4 ring-bg active:scale-95 transition-transform"
-                                aria-label="Nova operação"
+                                className="hidden sm:flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition-all active:scale-[0.97] shadow-sm shadow-emerald-600/30"
                             >
-                                <Plus className="w-6 h-6" strokeWidth={2.5} />
+                                <Plus size={16} strokeWidth={2.5} />
+                                Nova Operação
                             </button>
                         </div>
-                        {mobilePrimary.slice(2, 3).map(item => (
-                            <MobileTab key={item.id} item={item} active={currentPage === item.id} onClick={() => handleNavigation(item.id)} />
-                        ))}
-                        <MobileTab
-                            item={{ id: "more", name: "Mais", icon: Grid2x2 }}
-                            active={!currentInPrimary || moreOpen || currentPage === mobilePrimary[3]?.id}
-                            onClick={() => setMoreOpen(true)}
-                        />
-                    </div>
-                </nav>
-
-                {/* Folha "Mais" (celular) */}
-                {moreOpen && (
-                    <div className="lg:hidden fixed inset-0 z-50" role="dialog" aria-modal="true">
-                        <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={() => setMoreOpen(false)} />
-                        <div className="absolute inset-x-0 bottom-0 rounded-t-3xl bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl animate-sheet">
-                            <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-line-strong" />
-                            <div className="mb-5 flex items-center gap-3">
-                                <div className="w-11 h-11 rounded-full border border-line bg-subtle text-fg-muted flex items-center justify-center font-semibold uppercase">
-                                    {userName.charAt(0)}
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                    <p className="text-base font-semibold text-fg capitalize truncate">{userName}</p>
-                                    <p className="text-sm text-fg-subtle">{currentUser.role}</p>
-                                </div>
-                                <button onClick={() => setMoreOpen(false)} className="w-9 h-9 rounded-xl flex items-center justify-center text-fg-subtle hover:bg-hover" aria-label="Fechar">
-                                    <X className="w-5 h-5" />
-                                </button>
-                            </div>
-                            <div className="grid grid-cols-3 gap-2">
-                                {allowedItems.map(item => {
-                                    const Icon = item.icon;
-                                    const active = currentPage === item.id;
-                                    return (
-                                        <button
-                                            key={item.id}
-                                            onClick={() => handleNavigation(item.id)}
-                                            className={`flex flex-col items-center justify-center gap-2 rounded-2xl border px-2 py-4 text-xs font-medium transition-colors ${active ? "border-primary/40 bg-primary-soft text-primary-text" : "border-line text-fg-muted hover:bg-hover"}`}
-                                        >
-                                            <Icon className="w-5 h-5" />
-                                            {item.short || item.name}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                            <button
-                                onClick={handleLogout}
-                                className="mt-4 w-full h-12 rounded-2xl border border-line flex items-center justify-center gap-2 text-sm font-medium text-danger hover:bg-danger-soft"
-                            >
-                                <LogOut className="w-4 h-4" /> {demoActive ? "Sair da demonstração" : "Sair da conta"}
-                            </button>
-                        </div>
-                    </div>
+                    </header>
                 )}
 
-                {/* MODAL DE NOVA VENDA */}
-                {isNewSaleModalOpen && (
-                    <NewSaleModal
-                        onClose={() => setIsNewSaleModalOpen(false)}
-                        storeEmail={currentUser.storeEmail}
-                        onSaleComplete={() => setIsNewSaleModalOpen(false)}
-                    />
-                )}
-            </div>
-        </StoreDataProvider>
-    );
-}
+                {/* Conteúdo das Páginas */}
+                <div className="flex-1 p-4 md:p-8 w-full max-w-full overflow-x-hidden">
+                    {renderPage()}
+                </div>
+            </main>
 
-function MobileTab({ item, active, onClick }: { item: NavItem; active: boolean; onClick: () => void }) {
-    const Icon = item.icon;
-    return (
-        <button
-            onClick={onClick}
-            aria-current={active ? "page" : undefined}
-            className={`flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${active ? "text-primary" : "text-fg-subtle"}`}
-        >
-            <Icon className="w-[22px] h-[22px]" strokeWidth={active ? 2.3 : 1.8} />
-            {item.short || item.name}
-        </button>
+            {/* MODAL DE NOVA VENDA */}
+            {isLoggedIn && isNewSaleModalOpen && (
+                <NewSaleModal
+                    onClose={() => setIsNewSaleModalOpen(false)}
+                    storeEmail={currentUser.storeEmail}
+                    onSaleComplete={() => {
+                        setIsNewSaleModalOpen(false); // Fecha o modal ao concluir a venda
+                        setCurrentPage(currentPage);
+                    }}
+                />
+            )}
+        </div>
     );
 }
 

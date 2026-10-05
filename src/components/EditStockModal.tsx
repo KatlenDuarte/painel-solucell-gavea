@@ -220,20 +220,20 @@ const handleSubmit = (e: React.FormEvent) => {
               <Package className="w-6 h-6 text-white" />
             </div>
             <div className="flex-1">
-              <h3 className="text-slate-50 font-semibold text-lg">{newName}</h3>
+              <h3 className="text-white font-semibold text-lg">{newName}</h3>
               <p className="text-slate-400 text-sm">{product.brand} - {product.model}</p>
               
               <div className="mt-2 flex items-center gap-6">
                 <div>
-                  <p className="text-slate-500 text-xs">Estoque Atual</p>
-                  <p className="text-slate-50 font-bold text-xl">{product.stock}</p>
+                  <p className="text-slate-500 text-xs uppercase tracking-wider">Estoque Atual</p>
+                  <p className="text-white font-bold text-xl">{product.stock}</p>
                 </div>
                 <div>
-                  <p className="text-slate-500 text-xs">Mínimo Atual</p>
+                  <p className="text-slate-500 text-xs uppercase tracking-wider">Mínimo Atual</p>
                   <p className="text-amber-500 font-bold text-xl">{product.minStock}</p>
                 </div>
                 <div>
-                  <p className="text-slate-500 text-xs">Preço Unitário</p>
+                  <p className="text-slate-500 text-xs uppercase tracking-wider">Preço Unitário</p>
                   <p className="text-emerald-400 font-bold text-xl">R$ {Number(newPrice).toFixed(2)}</p>
                 </div>
               </div>
@@ -243,7 +243,7 @@ const handleSubmit = (e: React.FormEvent) => {
 
         {/* CAMPOS DE EDIÇÃO DE DETALHES */}
         <div className="space-y-4 pt-2 pb-4 border-b border-slate-800">
-          <h4 className="text-sm font-bold text-slate-500">Configurações do Produto</h4>
+          <h4 className="text-sm font-bold text-slate-500 uppercase tracking-widest">Configurações do Produto</h4>
           
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Nome do Produto</label>
@@ -252,7 +252,7 @@ const handleSubmit = (e: React.FormEvent) => {
               required
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-50 focus:border-blue-500 outline-none transition-all"
+              className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-blue-500 outline-none transition-all"
             />
           </div>
 
@@ -265,7 +265,7 @@ const handleSubmit = (e: React.FormEvent) => {
                 step="0.01"
                 value={newCostPrice}
                 onChange={(e) => setNewCostPrice(e.target.value)}
-                className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-50 focus:border-blue-500 outline-none transition-all"
+                className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-blue-500 outline-none transition-all"
                 placeholder="0.00"
               />
             </div>
@@ -279,7 +279,7 @@ const handleSubmit = (e: React.FormEvent) => {
                 step="0.01"
                 value={newPrice}
                 onChange={(e) => setNewPrice(e.target.value)}
-                className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-50 focus:border-blue-500 outline-none transition-all"
+                className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-blue-500 outline-none transition-all"
               />
             </div>
 
@@ -293,7 +293,7 @@ const handleSubmit = (e: React.FormEvent) => {
                 min="0"
                 value={newMinStock}
                 onChange={(e) => setNewMinStock(e.target.value)}
-                className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-50 focus:border-amber-500 outline-none transition-all"
+                className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-amber-500 outline-none transition-all"
                 placeholder="Ex: 5"
               />
             </div>
@@ -309,7 +309,7 @@ const handleSubmit = (e: React.FormEvent) => {
                   type="text"
                   value={newBarcode}
                   onChange={(e) => setNewBarcode(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-50 placeholder-slate-500 focus:border-blue-500 outline-none transition-all"
+                  className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:border-blue-500 outline-none transition-all"
                   placeholder="Bipe, digite ou gere um código..."
                 />
               </div>
@@ -335,13 +335,13 @@ const handleSubmit = (e: React.FormEvent) => {
                   min="1"
                   value={printQuantity}
                   onChange={(e) => setPrintQuantity(e.target.value)}
-                  className="w-16 px-2 py-1 bg-slate-950 border border-slate-700 rounded text-center text-slate-50 font-bold text-sm outline-none focus:border-blue-500"
+                  className="w-16 px-2 py-1 bg-slate-800 border border-slate-700 rounded text-center text-white font-bold text-sm outline-none focus:border-blue-500"
                 />
               </div>
               <button
                 type="button"
                 onClick={handlePrintLabels}
-                className="w-full sm:w-auto px-4 py-1.5 bg-primary hover:bg-primary-hover text-white rounded-lg flex items-center justify-center gap-2 transition-colors text-xs font-bold"
+                className="w-full sm:w-auto px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-2 transition-colors text-xs font-bold"
               >
                 <Printer className="w-3.5 h-3.5" />
                 <span>Imprimir Etiquetas</span>
@@ -356,15 +356,15 @@ const handleSubmit = (e: React.FormEvent) => {
           <div className="grid grid-cols-3 gap-3">
              <button type="button" onClick={() => setOperation("add")} className={`p-3 rounded-xl border-2 transition-all ${operation === "add" ? "border-emerald-500 bg-emerald-500/10 text-emerald-400" : "border-slate-700 bg-slate-800 text-slate-400"}`}>
                <Plus className="w-5 h-5 mx-auto mb-1" />
-               <span className="text-xs font-bold">Adicionar</span>
+               <span className="text-xs font-bold uppercase">Adicionar</span>
              </button>
              <button type="button" onClick={() => setOperation("remove")} className={`p-3 rounded-xl border-2 transition-all ${operation === "remove" ? "border-red-500 bg-red-500/10 text-red-400" : "border-slate-700 bg-slate-800 text-slate-400"}`}>
                <Minus className="w-5 h-5 mx-auto mb-1" />
-               <span className="text-xs font-bold">Remover</span>
+               <span className="text-xs font-bold uppercase">Remover</span>
              </button>
              <button type="button" onClick={() => setOperation("set")} className={`p-3 rounded-xl border-2 transition-all ${operation === "set" ? "border-blue-500 bg-blue-500/10 text-blue-400" : "border-slate-700 bg-slate-800 text-slate-400"}`}>
                <Package className="w-5 h-5 mx-auto mb-1" />
-               <span className="text-xs font-bold">Definir</span>
+               <span className="text-xs font-bold uppercase">Definir</span>
              </button>
           </div>
 
@@ -374,7 +374,7 @@ const handleSubmit = (e: React.FormEvent) => {
             min="0"
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
-            className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg text-slate-50 text-center text-2xl font-bold focus:border-emerald-500 outline-none transition-all"
+            className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg text-white text-center text-2xl font-bold focus:border-emerald-500 outline-none transition-all"
           />
         </div>
 
@@ -401,10 +401,10 @@ const handleSubmit = (e: React.FormEvent) => {
 
         {/* BOTÕES */}
         <div className="flex items-center gap-4 pt-4 border-t border-slate-800">
-          <button type="button" onClick={onClose} className="flex-1 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-50 rounded-lg transition-all font-medium">
+          <button type="button" onClick={onClose} className="flex-1 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-all font-medium">
             Cancelar
           </button>
-          <button type="submit" className="flex-1 px-6 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-lg transition-all font-medium shadow-lg">
+          <button type="submit" className="flex-1 px-6 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-lg transition-all font-medium shadow-lg shadow-emerald-500/20">
             Salvar Alterações
           </button>
         </div>

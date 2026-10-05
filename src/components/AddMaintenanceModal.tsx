@@ -186,23 +186,23 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
     <Modal onClose={onClose} size="large">
 
       {/* HEADER */}
-      <div className="relative overflow-hidden rounded-xl border border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6 mb-6">
+      <div className="relative overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6 mb-6">
         <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_top_right,_#3b82f6,_transparent_35%)]" />
         <div className="relative flex items-start justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shadow-lg">
+            <div className="w-16 h-16 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shadow-lg shadow-blue-500/10">
               <Wrench className="w-8 h-8 text-blue-400" />
             </div>
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <span className="px-2 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs font-bold text-blue-400">
+                <span className="px-2 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-[10px] uppercase tracking-widest font-bold text-blue-400">
                   Nova Ordem
                 </span>
-                <span className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs font-bold text-emerald-400">
+                <span className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[10px] uppercase tracking-widest font-bold text-emerald-400">
                   Sistema Técnico
                 </span>
               </div>
-              <h2 className="text-2xl md:text-3xl font-semibold text-slate-50 tracking-tight">
+              <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight">
                 Adicionar Manutenção
               </h2>
               <p className="text-slate-500 text-sm mt-2 max-w-xl">
@@ -224,13 +224,13 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
       <form onSubmit={handleSubmit} className="space-y-6">
 
         {/* CLIENTE */}
-        <section className="bg-slate-900/20 border border-slate-800 rounded-xl p-5">
+        <section className="bg-slate-900/20 border border-slate-800 rounded-3xl p-5">
           <div className="flex items-center gap-3 mb-5">
             <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
               <User className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold tracking-wide text-slate-50">
+              <h3 className="text-sm font-black uppercase tracking-wide text-white">
                 Cliente
               </h3>
               <p className="text-xs text-slate-500">
@@ -241,7 +241,7 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-[11px] font-bold text-slate-500 mb-2 block">
+              <label className="text-[11px] uppercase tracking-wider font-bold text-slate-500 mb-2 block">
                 Nome do Cliente *
               </label>
               <input
@@ -250,12 +250,12 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                 value={formData.customer}
                 onChange={handleChange}
                 placeholder="Ex: João Silva"
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-slate-50 outline-none focus:border-blue-500 transition-all"
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-blue-500 transition-all"
               />
             </div>
 
             <div>
-              <label className="text-[11px] font-bold text-slate-500 mb-2 block">
+              <label className="text-[11px] uppercase tracking-wider font-bold text-slate-500 mb-2 block">
                 Telefone *
               </label>
               <div className="relative">
@@ -269,7 +269,7 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                   value={formData.phone}
                   onChange={handleChange}
                   placeholder="(31) 99999-9999"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-11 pr-4 py-3 text-sm text-slate-50 outline-none focus:border-blue-500 transition-all"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-11 pr-4 py-3 text-sm text-white outline-none focus:border-blue-500 transition-all"
                 />
               </div>
             </div>
@@ -277,13 +277,13 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
         </section>
 
         {/* APARELHO */}
-        <section className="bg-slate-900/20 border border-slate-800 rounded-xl p-5">
+        <section className="bg-slate-900/20 border border-slate-800 rounded-3xl p-5">
           <div className="flex items-center gap-3 mb-5">
             <div className="w-11 h-11 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
               <Smartphone className="w-5 h-5 text-blue-400" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold tracking-wide text-slate-50">
+              <h3 className="text-sm font-black uppercase tracking-wide text-white">
                 Aparelho
               </h3>
               <p className="text-xs text-slate-500">
@@ -294,7 +294,7 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="text-[11px] font-bold text-slate-500 mb-2 block">
+              <label className="text-[11px] uppercase tracking-wider font-bold text-slate-500 mb-2 block">
                 Aparelho *
               </label>
               <input
@@ -303,19 +303,19 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                 value={formData.device}
                 onChange={handleChange}
                 placeholder="Ex: iPhone 14"
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-slate-50 outline-none focus:border-blue-500 transition-all"
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-blue-500 transition-all"
               />
             </div>
 
             <div>
-              <label className="text-[11px] font-bold text-slate-500 mb-2 block">
+              <label className="text-[11px] uppercase tracking-wider font-bold text-slate-500 mb-2 block">
                 Marca
               </label>
               <select
                 name="brand"
                 value={formData.brand}
                 onChange={handleChange}
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-slate-50 outline-none focus:border-blue-500 transition-all"
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-blue-500 transition-all"
               >
                 <option value="">Selecionar</option>
                 {brands.map((brand) => (
@@ -327,7 +327,7 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
             </div>
 
             <div>
-              <label className="text-[11px] font-bold text-slate-500 mb-2 block">
+              <label className="text-[11px] uppercase tracking-wider font-bold text-slate-500 mb-2 block">
                 Modelo
               </label>
               <input
@@ -336,20 +336,20 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                 value={formData.model}
                 onChange={handleChange}
                 placeholder="Ex: A54 5G"
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-slate-50 outline-none focus:border-blue-500 transition-all"
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-blue-500 transition-all"
               />
             </div>
           </div>
         </section>
 
         {/* PROBLEMA */}
-        <section className="bg-amber-500/5 border border-amber-500/10 rounded-xl p-5">
+        <section className="bg-amber-500/5 border border-amber-500/10 rounded-3xl p-5">
           <div className="flex items-center gap-3 mb-5">
             <div className="w-11 h-11 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
               <AlertCircle className="w-5 h-5 text-amber-400" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold tracking-wide text-slate-50">
+              <h3 className="text-sm font-black uppercase tracking-wide text-white">
                 Problema Reportado
               </h3>
               <p className="text-xs text-slate-500">
@@ -363,18 +363,18 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
             onChange={handleChange}
             rows={4}
             placeholder="Descreva o problema detalhadamente..."
-            className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-4 text-sm text-slate-50 outline-none resize-none focus:border-amber-500 transition-all"
+            className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-4 text-sm text-white outline-none resize-none focus:border-amber-500 transition-all"
           />
         </section>
 
         {/* SERVIÇO */}
-        <section className="bg-slate-900/20 border border-slate-800 rounded-xl p-5">
+        <section className="bg-slate-900/20 border border-slate-800 rounded-3xl p-5">
           <div className="flex items-center gap-3 mb-5">
             <div className="w-11 h-11 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
               <BadgeDollarSign className="w-5 h-5 text-purple-400" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold tracking-wide text-slate-50">
+              <h3 className="text-sm font-black uppercase tracking-wide text-white">
                 Serviço & Pagamento
               </h3>
               <p className="text-xs text-slate-500">
@@ -385,14 +385,14 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
             <div>
-              <label className="text-[11px] font-bold text-slate-500 mb-2 block">
+              <label className="text-[11px] uppercase tracking-wider font-bold text-slate-500 mb-2 block">
                 Status
               </label>
               <select
                 name="status"
                 value={formData.status}
                 onChange={handleChange}
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-slate-50 outline-none focus:border-purple-500 transition-all"
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-purple-500 transition-all"
               >
                 {statusOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -403,7 +403,7 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
             </div>
 
             <div>
-              <label className="text-[11px] font-bold text-slate-500 mb-2 block">
+              <label className="text-[11px] uppercase tracking-wider font-bold text-slate-500 mb-2 block">
                 Valor do Serviço
               </label>
               <div className="relative">
@@ -419,7 +419,7 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                   value={formData.value}
                   onChange={handleChange}
                   placeholder="0.00"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-11 pr-4 py-3 text-sm text-slate-50 outline-none focus:border-purple-500 transition-all"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-11 pr-4 py-3 text-sm text-white outline-none focus:border-purple-500 transition-all"
                 />
               </div>
             </div>
@@ -455,13 +455,13 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
         </section>
 
         {/* PRAZOS */}
-        <section className="bg-slate-900/20 border border-slate-800 rounded-xl p-5">
+        <section className="bg-slate-900/20 border border-slate-800 rounded-3xl p-5">
           <div className="flex items-center gap-3 mb-5">
             <div className="w-11 h-11 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
               <Calendar className="w-5 h-5 text-cyan-400" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold tracking-wide text-slate-50">
+              <h3 className="text-sm font-black uppercase tracking-wide text-white">
                 Datas & Entrega
               </h3>
               <p className="text-xs text-slate-500">
@@ -472,7 +472,7 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-[11px] font-bold text-slate-500 mb-2 block">
+              <label className="text-[11px] uppercase tracking-wider font-bold text-slate-500 mb-2 block">
                 Data do Pedido
               </label>
               <input
@@ -480,12 +480,12 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                 name="orderDate"
                 value={formData.orderDate}
                 onChange={handleChange}
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-slate-50 outline-none focus:border-cyan-500 transition-all"
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-cyan-500 transition-all"
               />
             </div>
 
             <div>
-              <label className="text-[11px] font-bold text-slate-500 mb-2 block">
+              <label className="text-[11px] uppercase tracking-wider font-bold text-slate-500 mb-2 block">
                 Previsão de Entrega
               </label>
               <input
@@ -493,20 +493,20 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
                 name="deliveryDate"
                 value={formData.deliveryDate}
                 onChange={handleChange}
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-slate-50 outline-none focus:border-cyan-500 transition-all"
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-cyan-500 transition-all"
               />
             </div>
           </div>
         </section>
 
         {/* OBSERVAÇÕES */}
-        <section className="bg-slate-900/20 border border-slate-800 rounded-xl p-5">
+        <section className="bg-slate-900/20 border border-slate-800 rounded-3xl p-5">
           <div className="flex items-center gap-3 mb-5">
             <div className="w-11 h-11 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center">
               <ClipboardList className="w-5 h-5 text-slate-300" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold tracking-wide text-slate-50">
+              <h3 className="text-sm font-black uppercase tracking-wide text-white">
                 Observações
               </h3>
               <p className="text-xs text-slate-500">
@@ -520,12 +520,12 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
             onChange={handleChange}
             rows={3}
             placeholder="Digite observações adicionais..."
-            className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-4 text-sm text-slate-50 outline-none resize-none focus:border-slate-600 transition-all"
+            className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-4 text-sm text-white outline-none resize-none focus:border-slate-600 transition-all"
           />
         </section>
 
         {/* ACTIONS */}
-        <div className="sticky bottom-0 bg-slate-950/80 backdrop-blur-xl border border-slate-800 rounded-xl p-4 flex flex-col md:flex-row gap-3">
+        <div className="sticky bottom-0 bg-[#020617]/80 backdrop-blur-xl border border-slate-800 rounded-3xl p-4 flex flex-col md:flex-row gap-3">
           <button
             type="button"
             onClick={onClose}
@@ -538,7 +538,7 @@ const AddMaintenanceModal: React.FC<AddMaintenanceModalProps> = ({
           <button
             type="submit"
             disabled={loading}
-            className="flex-1 py-3 rounded-2xl bg-primary hover:bg-primary-hover text-white text-sm font-semibold transition-all shadow-lg flex items-center justify-center gap-2"
+            className="flex-1 py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-black transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2"
           >
             {loading ? (
               <>

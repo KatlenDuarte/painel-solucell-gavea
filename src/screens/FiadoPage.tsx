@@ -1,32 +1,35 @@
 // src/screens/FiadoPage.tsx
 
-import { useState, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
     Search,
+    User,
     Calendar,
     Clock,
     MessageCircle,
     Check,
+    ChevronLeft,
+    Loader2,
     AlertCircle,
     X,
     Wallet,
     Landmark,
-    CheckCircle2,
-    Users,
-    Phone
+    DollarSign,
+    CheckCircle2
 } from "lucide-react";
-import { Page, PageHeader, Card, StatCard, Button, IconButton, Badge, Segmented, SearchInput, EmptyState, LoadingState } from "../components/ui";
-import { formatBRL, initials } from "../lib/format";
 
 import {
+    collection,
+    getDocs,
+    query,
+    where,
     updateDoc,
     doc,
     serverTimestamp
-} from "../lib/firestore";
+} from "firebase/firestore";
 import QuitarFiadoModal from "../components/QuitarFiadoModal";
 
 import { db } from "../lib/firebase";
-import { useStoreData } from "../contexts/StoreDataContext";
 
 interface FiadoSale {
     id: string;
@@ -41,10 +44,15 @@ interface FiadoSale {
     timestamp?: any;
 }
 
-export default function FiadoPage() {
+export default function FiadoPage({
+    storeEmail
+}: {
+    storeEmail: string;
+}) {
 
-    const { sales: salesDocs, salesLoading: loading } = useStoreData();
+    const [fiados, setFiados] = useState<FiadoSale[]>([]);
     const [editingNote, setEditingNote] = useState<Record<string, string>>({});
+    const [loading, setLoading] = useState(true);
 
     const [searchTerm, setSearchTerm] = useState("");
 
@@ -59,20 +67,32 @@ export default function FiadoPage() {
     const [selectedMonth, setSelectedMonth] =
         useState<string>("all");
 
-    // Fiados derivados das vendas em tempo real (StoreDataContext): trocar de aba
-    // ou quitar/cancelar um fiado não gera nova leitura da coleção.
-    const fiados = useMemo<FiadoSale[]>(() => {
+    const fetchFiados = useCallback(async () => {
+
+        if (!storeEmail) return;
+
+        setLoading(true);
+
+        try {
+
             const statusFilter =
                 activeTab === "pendentes"
                     ? "pending"
                     : "fiado_quitado";
 
+            const q = query(
+                collection(db, "sales"),
+                where("store", "==", storeEmail),
+                where("status", "==", statusFilter)
+            );
+
+            const snapshot = await getDocs(q);
+
             const list: FiadoSale[] = [];
 
-            salesDocs.forEach((docSnap) => {
+            snapshot.docs.forEach((docSnap) => {
 
                 const data = docSnap.data();
-                if (data.status !== statusFilter) return;
 
                 const isFiado =
                     data.paymentMethod === "Fiado" ||
@@ -123,7 +143,9 @@ export default function FiadoPage() {
                             data.fiado?.whatsapp ||
                             "",
 
-                        note: data.note || "",
+                        note:
+                            data.note ||
+                            "DATA PREVISTA PAGAMENTO: ",
 
                         status: data.status,
 
@@ -139,12 +161,23 @@ export default function FiadoPage() {
                     (a.timestamp?.toMillis?.() || 0)
             );
 
-            return list;
-    }, [salesDocs, activeTab]);
+            setFiados(list);
 
-    // Mantido para os callbacks: o listener já reflete as alterações.
-    const fetchFiados = useCallback(() => {}, []);
+        } catch (error) {
 
+            console.error(error);
+
+        } finally {
+
+            setLoading(false);
+
+        }
+
+    }, [storeEmail, activeTab]);
+
+    useEffect(() => {
+        fetchFiados();
+    }, [fetchFiados]);
 
     const filteredFiados = fiados.filter((f) => {
 
@@ -252,47 +285,9 @@ export default function FiadoPage() {
         setShowQuitarModal(true);
     };
 
-    // Resumo geral (independente da aba)
-    const summary = useMemo(() => {
-        let pendingCount = 0, pendingTotal = 0, paidCount = 0, oldest = 0;
-        const now = Date.now();
-        salesDocs.forEach(d => {
-            const data = d.data();
-            const isFiado = data.paymentMethod === "Fiado" || data.paymentMethod === "Fiado (Quitado)" || data.fiado;
-            if (!isFiado) return;
-            if (data.status === "pending") {
-                pendingCount++;
-                pendingTotal += Number(data.total) || Number(data.fiado?.valor) || 0;
-                const ms = data.timestamp?.toMillis?.();
-                if (ms) oldest = Math.max(oldest, Math.floor((now - ms) / 86400000));
-            } else if (data.status === "fiado_quitado") {
-                paidCount++;
-            }
-        });
-        return { pendingCount, pendingTotal, paidCount, oldest };
-    }, [salesDocs]);
-
-    // Meses disponíveis para o filtro, a partir dos próprios registros
-    const monthOptions = useMemo(() => {
-        const set = new Set<string>();
-        fiados.forEach(f => {
-            const d = f.timestamp?.toDate?.();
-            if (d) set.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
-        });
-        return [...set].sort().reverse().map(value => {
-            const [y, m] = value.split("-").map(Number);
-            const label = new Date(y, m - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
-            return { value, label: label.charAt(0).toUpperCase() + label.slice(1) };
-        });
-    }, [fiados]);
-
-    const daysOpen = (f: FiadoSale) => {
-        const ms = f.timestamp?.toMillis?.();
-        return ms ? Math.floor((Date.now() - ms) / 86400000) : 0;
-    };
-
     return (
-        <Page>
+        <div className="min-h-screen bg-[#020617] text-slate-300 p-4 md:p-8 font-sans antialiased">
+
             {showQuitarModal && selectedFiado && (
                 <QuitarFiadoModal
                     saleId={selectedFiado.id}
@@ -308,126 +303,386 @@ export default function FiadoPage() {
                     }} clientName={""} />
             )}
 
-            <PageHeader
-                title="Fiado"
-                description="Controle de vendas a prazo: cobre, registre pagamentos e acompanhe o histórico."
-            />
+            <div className="max-w-6xl mx-auto space-y-6">
 
-            <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-                <StatCard label="Total a receber" value={formatBRL(summary.pendingTotal)} icon={Wallet} tone="danger" hint="Soma dos fiados em aberto" />
-                <StatCard label="Fiados em aberto" value={summary.pendingCount} icon={Users} tone="warning" hint={summary.pendingCount ? `Mais antigo há ${summary.oldest} dias` : "Nenhum pendente"} />
-                <StatCard label="Quitados" value={summary.paidCount} icon={CheckCircle2} tone="success" hint="Registros no histórico" />
-                <StatCard label={activeTab === "pendentes" ? "Filtrado (pendentes)" : "Filtrado (histórico)"} value={formatBRL(totalPendente)} icon={Landmark} hint={`${filteredFiados.length} registros na lista`} />
-            </div>
+                {/* HEADER */}
 
-            <Card padded={false} className="overflow-hidden">
-                <div className="flex flex-col gap-3 border-b border-line p-4 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <Segmented
-                            value={activeTab}
-                            onChange={setActiveTab}
-                            options={[
-                                { value: "pendentes", label: `Pendentes${summary.pendingCount ? ` · ${summary.pendingCount}` : ""}` },
-                                { value: "historico", label: "Histórico" },
-                            ]}
-                        />
-                        <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="ui-input w-auto">
-                            <option value="all">Todos os meses</option>
-                            {monthOptions.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-                        </select>
+                <header className="flex flex-col lg:flex-row justify-between lg:items-end gap-6 border-b border-slate-800 pb-6">
+
+                    <div>
+                        <h1 className="text-3xl md:text-4xl font-black italic text-white">
+                            SOLUCELL
+                            <span className="text-blue-600">.</span>
+                        </h1>
+
+                        <p className="text-cyan-400 text-[10px] font-black uppercase tracking-[0.3em] mt-2">
+                            Gestão de Fiado
+                        </p>
                     </div>
-                    <SearchInput icon={Search} value={searchTerm} onChange={setSearchTerm} placeholder="Buscar cliente ou telefone..." className="w-full lg:w-72" />
+
+                    <div className="text-left lg:text-right">
+                        <p className="text-[10px] uppercase font-black text-slate-500 tracking-widest">
+                            Controle financeiro
+                        </p>
+
+                        <p className="text-sm text-slate-400 font-bold">
+                            Clientes pendentes e histórico
+                        </p>
+                    </div>
+
+                </header>
+
+                {/* CARDS */}
+
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+
+                    <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800">
+                        <p className="text-slate-500 text-[9px] font-black uppercase mb-2">
+                            Total Pendente
+                        </p>
+
+                        <p className="text-2xl font-black text-rose-500">
+                            R$ {totalPendente.toFixed(2)}
+                        </p>
+                    </div>
+
+                    <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800">
+                        <p className="text-slate-500 text-[9px] font-black uppercase mb-2">
+                            Quantidade
+                        </p>
+
+                        <p className="text-2xl font-black text-white">
+                            {filteredFiados.length}
+                        </p>
+                    </div>
+
+                    <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800">
+                        <p className="text-slate-500 text-[9px] font-black uppercase mb-2">
+                            Pendentes
+                        </p>
+
+                        <p className="text-2xl font-black text-yellow-400">
+                            {
+                                fiados.filter(
+                                    f => f.status === "pending"
+                                ).length
+                            }
+                        </p>
+                    </div>
+
+                    <div className="bg-blue-600/10 p-5 rounded-xl border border-blue-500/20 relative overflow-hidden">
+
+                        <div className="absolute right-4 top-4 text-blue-500/20">
+                            <Wallet size={38} />
+                        </div>
+
+                        <p className="text-blue-400 text-[9px] font-black uppercase mb-2">
+                            Histórico Pago
+                        </p>
+
+                        <p className="text-2xl font-black text-white">
+                            {
+                                fiados.filter(
+                                    f => f.status === "completed"
+                                ).length
+                            }
+                        </p>
+
+                    </div>
+
                 </div>
 
+                {/* FILTROS */}
+
+                <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_auto] gap-4">
+
+                    <div className="relative">
+                        <Search
+                            className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
+                            size={18}
+                        />
+
+                        <input
+                            placeholder="Buscar cliente ou telefone..."
+                            value={searchTerm}
+                            onChange={(e) =>
+                                setSearchTerm(e.target.value)
+                            }
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl py-4 pl-12 pr-4 text-sm text-white outline-none focus:border-cyan-500"
+                        />
+                    </div>
+
+                    <div className="flex bg-slate-900 border border-slate-800 p-1 rounded-xl">
+
+                        <button
+                            onClick={() =>
+                                setActiveTab("pendentes")
+                            }
+                            className={`px-6 py-3 rounded-xl text-xs font-black transition-all ${activeTab === "pendentes"
+                                ? "bg-white text-slate-950"
+                                : "text-slate-400"
+                                }`}
+                        >
+                            PENDENTES
+                        </button>
+
+                        <button
+                            onClick={() =>
+                                setActiveTab("historico")
+                            }
+                            className={`px-6 py-3 rounded-xl text-xs font-black transition-all ${activeTab === "historico"
+                                ? "bg-white text-slate-950"
+                                : "text-slate-400"
+                                }`}
+                        >
+                            HISTÓRICO
+                        </button>
+
+                    </div>
+
+                    <select
+                        value={selectedMonth}
+                        onChange={(e) =>
+                            setSelectedMonth(e.target.value)
+                        }
+                        className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-4 text-sm outline-none text-slate-400"
+                    >
+                        <option value="all">
+                            Todos os meses
+                        </option>
+
+                        <option value="2026-01">
+                            Janeiro 2026
+                        </option>
+
+                        <option value="2026-02">
+                            Fevereiro 2026
+                        </option>
+
+                        <option value="2026-03">
+                            Março 2026
+                        </option>
+
+                        <option value="2026-04">
+                            Abril 2026
+                        </option>
+
+                    </select>
+
+                </div>
+
+                {/* LISTA */}
+
                 {loading ? (
-                    <LoadingState label="Carregando fiados..." />
+
+                    <div className="flex justify-center py-20">
+                        <Loader2
+                            className="animate-spin text-cyan-500"
+                            size={50}
+                        />
+                    </div>
+
                 ) : filteredFiados.length === 0 ? (
-                    <EmptyState
-                        icon={activeTab === "pendentes" ? CheckCircle2 : AlertCircle}
-                        title={activeTab === "pendentes" ? "Nenhum fiado pendente" : "Nenhum registro no histórico"}
-                        description={searchTerm || selectedMonth !== "all" ? "Ajuste a busca ou o mês selecionado." : activeTab === "pendentes" ? "Todos os clientes estão em dia." : "Fiados quitados aparecem aqui."}
-                    />
+
+                    <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-16 text-center">
+
+                        <AlertCircle
+                            size={50}
+                            className="mx-auto text-slate-600 mb-4"
+                        />
+
+                        <p className="text-slate-400 font-bold">
+                            Nenhum fiado encontrado.
+                        </p>
+
+                    </div>
+
                 ) : (
-                    <ul className="divide-y divide-line">
-                        {filteredFiados.map((sale) => {
-                            const days = daysOpen(sale);
-                            const note = editingNote[sale.id] ?? sale.note ?? "";
-                            const noteChanged = editingNote[sale.id] !== undefined && editingNote[sale.id] !== sale.note;
-                            return (
-                                <li key={sale.id} className="p-5">
-                                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-                                        <div className="flex min-w-0 flex-1 gap-3">
-                                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-subtle border border-line text-sm font-semibold text-fg-muted">
-                                                {initials(sale.clientName)}
-                                            </span>
-                                            <div className="min-w-0 flex-1 space-y-2">
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <h3 className="text-sm font-semibold text-fg">{sale.clientName}</h3>
-                                                    {activeTab === "pendentes" ? (
-                                                        <Badge tone={days > 30 ? "danger" : days > 7 ? "warning" : "neutral"} dot>
-                                                            {days === 0 ? "Hoje" : `${days} ${days === 1 ? "dia" : "dias"} em aberto`}
-                                                        </Badge>
-                                                    ) : (
-                                                        <Badge tone="success" dot>Quitado</Badge>
-                                                    )}
-                                                </div>
-                                                <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg-subtle">
-                                                    <span className="inline-flex items-center gap-1"><Calendar size={12} /> {sale.date}</span>
-                                                    <span className="inline-flex items-center gap-1"><Clock size={12} /> {sale.time}</span>
-                                                    {sale.phone && <span className="inline-flex items-center gap-1"><Phone size={12} /> {sale.phone}</span>}
-                                                </p>
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {sale.items.map((item, i) => (
-                                                        <Badge key={i}><span className="text-fg-subtle">{item.qty}×</span> {item.name}</Badge>
-                                                    ))}
-                                                </div>
-                                                <div className="flex items-start gap-2 pt-1">
-                                                    <textarea
-                                                        value={note}
-                                                        onChange={(e) => setEditingNote((prev) => ({ ...prev, [sale.id]: e.target.value }))}
-                                                        placeholder="Observação (ex.: data prevista de pagamento)"
-                                                        rows={1}
-                                                        className="ui-input h-auto min-h-9 py-2 resize-y text-sm"
+
+                    <div className="space-y-4">
+
+                        {filteredFiados.map((sale) => (
+
+                            <div
+                                key={sale.id}
+                                className="bg-slate-900/40 border border-slate-800 rounded-xl p-5 hover:border-cyan-500/20 transition-all"
+                            >
+
+                                <div className="flex flex-col xl:flex-row gap-6">
+
+                                    {/* INFO */}
+
+                                    <div className="flex-1 space-y-4">
+
+                                        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+
+                                            <div className="flex gap-3">
+
+                                                <div className="h-11 w-11 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-center shrink-0">
+                                                    <User
+                                                        className="text-slate-500"
+                                                        size={18}
                                                     />
-                                                    {noteChanged && (
-                                                        <Button size="md" onClick={() => handleSaveNote(sale.id)}>Salvar</Button>
-                                                    )}
                                                 </div>
+
+                                                <div>
+
+                                                    <h3 className="text-base font-bold text-white tracking-tight">
+                                                        {sale.clientName}
+                                                    </h3>
+
+                                                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+
+                                                        <div className="bg-slate-950/60 border border-slate-800/60 rounded px-2 py-0.5 text-[9px] font-bold uppercase text-slate-500 flex items-center gap-1">
+                                                            <Calendar size={10} />
+                                                            {sale.date}
+                                                        </div>
+
+                                                        <div className="bg-slate-950/60 border border-slate-800/60 rounded px-2 py-0.5 text-[9px] font-bold uppercase text-slate-500 flex items-center gap-1">
+                                                            <Clock size={10} />
+                                                            {sale.time}
+                                                        </div>
+
+                                                    </div>
+
+                                                </div>
+
+                                            </div>
+
+                                            <div className="text-left md:text-right">
+
+                                                <p className="text-[9px] text-slate-500 uppercase font-black tracking-wider mb-0.5">
+                                                    Total Devido
+                                                </p>
+
+                                                <p className="text-xl font-bold text-white font-mono">
+                                                    R$ {sale.total.toFixed(2)}
+                                                </p>
+
+                                            </div>
+
+                                        </div>
+
+                                        {/* ITENS */}
+
+                                        <div className="flex flex-wrap gap-1.5">
+
+                                            {sale.items.map((item, i) => (
+
+                                                <div
+                                                    key={i}
+                                                    className="bg-slate-950 border border-slate-800/50 rounded px-2.5 py-1 text-[10px] text-slate-400 font-medium"
+                                                >
+                                                    <span className="text-cyan-500 font-bold mr-1">
+                                                        {item.qty}x
+                                                    </span>
+
+                                                    {item.name}
+                                                </div>
+
+                                            ))}
+
+                                        </div>
+
+                                        {/* OBS */}
+
+                                        {/* OBS */}
+                                        <div className="bg-slate-950/40 border border-slate-800/60 rounded-xl p-4 backdrop-blur-sm">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                                                    Observação
+                                                </p>
+                                                <span className="text-[10px] text-slate-500">
+                                                    {((editingNote[sale.id] ?? sale.note) || '').length} caracteres
+                                                </span>
+                                            </div>
+
+                                            <textarea
+                                                value={editingNote[sale.id] ?? sale.note}
+                                                onChange={(e) =>
+                                                    setEditingNote((prev) => ({
+                                                        ...prev,
+                                                        [sale.id]: e.target.value
+                                                    }))
+                                                }
+                                                placeholder="Digite uma observação para esta venda..."
+                                                className="w-full bg-slate-900/60 border border-slate-800 rounded-lg p-3 text-xs text-slate-200 outline-none placeholder:text-slate-600 focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30 transition-all resize-none min-h-[70px]"
+                                                rows={3}
+                                            />
+
+                                            <div className="flex justify-end mt-2.5">
+                                                <button
+                                                    onClick={() => handleSaveNote(sale.id)}
+                                                    className="bg-cyan-500/10 hover:bg-cyan-600 border border-cyan-500/20 hover:border-cyan-500 text-cyan-400 hover:text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-all duration-200 active:scale-[0.98]"
+                                                >
+                                                    Salvar Observação
+                                                </button>
                                             </div>
                                         </div>
 
-                                        <div className="flex shrink-0 flex-row items-center justify-between gap-3 lg:flex-col lg:items-end">
-                                            <div className="lg:text-right">
-                                                <p className="text-xs text-fg-subtle">Valor</p>
-                                                <p className={`text-lg font-semibold tabular ${activeTab === "pendentes" ? "text-fg" : "text-fg-muted"}`}>{formatBRL(sale.total)}</p>
-                                            </div>
-                                            <div className="flex items-center justify-end gap-1.5">
-                                                {!!sale.phone && (
-                                                    <a
-                                                        href={`https://wa.me/${sale.phone.replace(/\D/g, "")}?text=Olá ${encodeURIComponent(sale.clientName)}, passando para lembrar sobre o fiado pendente no valor de R$ ${sale.total.toFixed(2)}.`}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        title="Cobrar pelo WhatsApp"
-                                                        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-sm font-medium text-fg hover:bg-hover transition-colors"
-                                                    >
-                                                        <MessageCircle size={15} className="text-success" /> Cobrar
-                                                    </a>
-                                                )}
-                                                {activeTab === "pendentes" && (
-                                                    <>
-                                                        <Button variant="primary" icon={Check} onClick={() => openQuitarModal(sale)}>Quitar</Button>
-                                                        <IconButton icon={X} label="Cancelar fiado" tone="danger" onClick={() => handleCancelFiado(sale.id)} />
-                                                    </>
-                                                )}
-                                            </div>
-                                        </div>
                                     </div>
-                                </li>
-                            );
-                        })}
-                    </ul>
+
+                                    {/* AÇÕES */}
+
+                                    <div className="xl:w-60 flex flex-col gap-2 justify-center shrink-0 border-t xl:border-t-0 xl:border-l border-slate-800/60 pt-4 xl:pt-0 xl:pl-4">
+
+                                        {activeTab === "pendentes" && (
+
+                                            <>
+                                                <button
+                                                    onClick={() =>
+                                                        openQuitarModal(sale)
+                                                    }
+                                                    className="w-full bg-cyan-600 hover:bg-cyan-500 rounded-lg py-2 font-bold text-white flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] text-xs shadow-sm"
+                                                >
+                                                    <CheckCircle2 size={14} />
+                                                    QUITAR FIADO
+                                                </button>
+
+                                                <button
+                                                    onClick={() =>
+                                                        handleCancelFiado(sale.id)
+                                                    }
+                                                    className="w-full bg-slate-950 hover:bg-rose-950/20 border border-slate-800 hover:border-rose-900/30 rounded-lg py-1.5 font-bold text-slate-500 hover:text-rose-400 flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] text-[11px]"
+                                                >
+                                                    <X size={12} />
+                                                    CANCELAR
+                                                </button>
+                                            </>
+
+                                        )}
+
+                                        {!!sale.phone && (
+
+                                            <a
+                                                href={`https://wa.me/${sale.phone.replace(/\D/g, "")}?text=Olá ${encodeURIComponent(sale.clientName)}, passando para lembrar sobre o fiado pendente no valor de R$ ${sale.total.toFixed(2)}.`}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="w-full bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg py-1.5 font-bold text-slate-400 flex items-center justify-center gap-1.5 transition-all text-[11px]"
+                                            >
+                                                <MessageCircle
+                                                    className="text-emerald-500"
+                                                    size={13}
+                                                />
+
+                                                WHATSAPP
+                                            </a>
+
+                                        )}
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                        ))}
+
+                    </div>
+
                 )}
-            </Card>
-        </Page>
+
+            </div>
+        </div>
     );
 }

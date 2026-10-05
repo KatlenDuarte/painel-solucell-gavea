@@ -1,6 +1,6 @@
 // src/screens/Maintenance.tsx
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
     Wrench,
     Search,
@@ -11,23 +11,24 @@ import {
     AlertCircle,
     Package,
     DollarSign,
+    Calendar,
     Loader,
     ArrowUp,
     ArrowDown,
     Edit2,
     Trash2,
+    Zap,
     Phone,
+    User,
+    Smartphone,
+    Filter,
     CreditCard,
-    Printer,
-    ChevronsRight
+    BadgeDollarSign,
+    Printer
 } from "lucide-react";
-import DateRangeFilter from "../components/DateRangeFilter";
-import { rangeBounds, toInputDate, type DateRange } from "../lib/dateRange";
-import { Page, PageHeader, Card, StatCard, Button, IconButton, Badge, Segmented, SearchInput, EmptyState, LoadingState, ListRow, type Tone } from "../components/ui";
-import { formatBRL, initials } from "../lib/format";
 
 import {
-    subscribeMaintenances,
+    fetchMaintenances,
     deleteMaintenance as deleteMaintenanceService,
     updateMaintenance as updateMaintenanceService
 } from "../services/maintenanceService";
@@ -75,13 +76,10 @@ export default function MaintenancePage() {
 
     // períodos
     const [period, setPeriod] = useState<
-        "today" | "week" | "month" | "year" | "custom_range" | "custom_month"
+        "today" | "week" | "month" | "year" | "custom_day" | "custom_month"
     >("today");
 
-    const [range, setRange] = useState<DateRange>(() => {
-        const now = new Date();
-        return { from: toInputDate(new Date(now.getFullYear(), now.getMonth(), 1)), to: toInputDate(now) };
-    });
+    const [selectedDay, setSelectedDay] = useState("");
     const [selectedMonth, setSelectedMonth] = useState(
         new Date().getMonth()
     );
@@ -108,36 +106,24 @@ export default function MaintenancePage() {
     const [showPrintModal, setShowPrintModal] = useState(false);
     const [selectedOS, setSelectedOS] = useState<Maintenance | null>(null);
 
-    // Listener em tempo real: antes a coleção inteira era relida a cada
-    // criação/edição/exclusão; agora só os documentos alterados chegam.
-    useEffect(() => {
+    const loadMaintenances = useCallback(async () => {
         if (!storeEmail) return;
 
-        return subscribeMaintenances(
-            storeEmail,
-            (data) => {
-                setMaintenances(data.map(m => ({
-                    ...m,
-                    customer: String(m.customer ?? ""),
-                    phone: String(m.phone ?? ""),
-                    device: String(m.device ?? ""),
-                    brand: String(m.brand ?? ""),
-                    model: String(m.model ?? ""),
-                    issue: String(m.issue ?? ""),
-                    status: m.status || "pending",
-                    value: Number(m.value) || 0,
-                })) as Maintenance[]);
-                setLoading(false);
-            },
-            (error) => {
-                console.error(error);
-                setLoading(false);
-            }
-        );
+        setLoading(true);
+
+        try {
+            const data = await fetchMaintenances(storeEmail);
+            setMaintenances(data as Maintenance[]);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setLoading(false);
+        }
     }, [storeEmail]);
 
-    // Mantido para os callbacks: o listener já reflete as alterações.
-    const loadMaintenances = useCallback(() => {}, []);
+    useEffect(() => {
+        loadMaintenances();
+    }, [loadMaintenances]);
 
     const handlePrintOS = async (maintenance: Maintenance) => {
         try {
@@ -180,18 +166,39 @@ export default function MaintenancePage() {
             alert("Erro ao enviar para impressão.");
         }
     };
-    const statusConfig: Record<Maintenance["status"], { label: string; tone: Tone; icon: typeof Clock }> = {
-        pending: { label: "Aguardando", tone: "warning", icon: Clock },
-        parts_ordered: { label: "Peça pedida", tone: "info", icon: Package },
-        in_progress: { label: "Em reparo", tone: "primary", icon: Wrench },
-        completed: { label: "Concluído", tone: "success", icon: CheckCircle },
-        cancelled: { label: "Cancelado", tone: "neutral", icon: XCircle },
-    };
-
-    const nextStatusLabel: Partial<Record<Maintenance["status"], string>> = {
-        pending: "Marcar peça pedida",
-        parts_ordered: "Iniciar reparo",
-        in_progress: "Concluir reparo",
+    const statusConfig = {
+        pending: {
+            label: "Aguardando",
+            color:
+                "bg-amber-500/10 text-amber-400 border-amber-500/20",
+            icon: Clock
+        },
+        parts_ordered: {
+            label: "Peça Pedida",
+            color:
+                "bg-blue-500/10 text-blue-400 border-blue-500/20",
+            icon: Package
+        },
+        in_progress: {
+            label: "Em Reparo",
+            color:
+                "bg-purple-500/10 text-purple-400 border-purple-500/20",
+            icon: Wrench
+        },
+        completed: {
+            label:
+                "Concluído",
+            color:
+                "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+            icon: CheckCircle
+        },
+        cancelled: {
+            label:
+                "Cancelado",
+            color:
+                "bg-red-500/10 text-red-400 border-red-500/20",
+            icon: XCircle
+        }
     };
 
     const processedMaintenances = useMemo(() => {
@@ -238,12 +245,20 @@ export default function MaintenancePage() {
                 );
                 break;
 
-            case "custom_range": {
-                const bounds = rangeBounds(range);
-                startDate = bounds.start ?? new Date(0);
-                endDate = bounds.end;
+            case "custom_day":
+                if (!selectedDay) {
+                    startDate = new Date(0);
+                } else {
+                    const [y, m, d] = selectedDay
+                        .split("-")
+                        .map(Number);
+
+                    startDate = new Date(y, m - 1, d, 0, 0, 0);
+
+                    endDate = new Date(y, m - 1, d, 23, 59, 59);
+                }
+
                 break;
-            }
 
             default:
                 startDate = new Date(0);
@@ -293,7 +308,7 @@ export default function MaintenancePage() {
     }, [
         maintenances,
         period,
-        range,
+        selectedDay,
         selectedMonth,
         selectedYear,
         searchTerm,
@@ -438,210 +453,540 @@ export default function MaintenancePage() {
         }
     };
 
-    if (loading) return <LoadingState label="Carregando manutenções..." />;
-
-    const statusCounts = maintenances.reduce<Record<string, number>>((acc, m) => {
-        acc[m.status] = (acc[m.status] || 0) + 1;
-        return acc;
-    }, {});
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-[#020617] flex items-center justify-center text-slate-400 text-xs font-semibold uppercase tracking-widest animate-pulse">
+                Carregando manutenções...
+            </div>
+        );
+    }
 
     return (
-        <Page>
-            <PageHeader
-                title="Manutenção"
-                description="Ordens de serviço: acompanhe reparos, pagamentos e entregas."
-                actions={<Button variant="primary" icon={Plus} onClick={() => setShowAddModal(true)}>Nova ordem de serviço</Button>}
-            />
+        <div className="p-4 md:p-8 bg-[#020617] min-h-screen space-y-6 text-slate-300">
 
-            <div className="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-5 gap-4">
-                <StatCard label="Faturamento" value={formatBRL(metrics.total)} icon={DollarSign} tone="primary" hint={`${processedMaintenances.length} ordens no período`} className="col-span-2 md:col-span-1" />
-                <StatCard label="Em andamento" value={metrics.pending} icon={Wrench} tone="warning" hint="Aguardando ou em reparo" />
-                <StatCard label="Concluídas" value={metrics.completed} icon={CheckCircle} tone="success" />
-                <StatCard label="Pagas" value={metrics.paid} icon={CreditCard} tone="info" />
-                <StatCard label="A receber" value={metrics.unpaid} icon={AlertCircle} tone="danger" hint="Ordens sem pagamento" />
-            </div>
+            {/* HEADER */}
 
-            <Card padded={false} className="overflow-hidden">
-                {/* Filtros */}
-                <div className="space-y-3 border-b border-line p-4">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <Segmented
-                                value={period === "custom_month" ? ("" as "today") : period}
-                                onChange={(v) => setPeriod(v)}
-                                options={[
-                                    { value: "today", label: "Hoje" },
-                                    { value: "week", label: "7 dias" },
-                                    { value: "month", label: "Mês" },
-                                    { value: "year", label: "Ano" },
-                                    { value: "custom_range", label: "Período" },
-                                ]}
-                            />
-                            {period === "custom_range" && (
-                                <div className="basis-full pt-1">
-                                    <DateRangeFilter value={range} onChange={setRange} />
-                                </div>
-                            )}
-                        </div>
-                        <SearchInput icon={Search} value={searchTerm} onChange={setSearchTerm} placeholder="Cliente, aparelho, defeito..." className="w-full lg:w-72" />
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <button
-                            onClick={() => setStatusFilter("all")}
-                            className={`h-8 rounded-full border px-3 text-xs font-medium transition-colors ${statusFilter === "all" ? "border-fg bg-fg text-bg" : "border-line text-fg-muted hover:bg-hover"}`}
-                        >
-                            Todos os status
-                        </button>
-                        {(Object.entries(statusConfig) as [Maintenance["status"], typeof statusConfig[Maintenance["status"]]][]).map(([key, cfg]) => (
-                            <button
-                                key={key}
-                                onClick={() => setStatusFilter(key)}
-                                className={`h-8 rounded-full border px-3 text-xs font-medium transition-colors ${statusFilter === key ? "border-fg bg-fg text-bg" : "border-line text-fg-muted hover:bg-hover"}`}
-                            >
-                                {cfg.label}
-                                {statusCounts[key] ? <span className="ml-1.5 opacity-60">{statusCounts[key]}</span> : null}
-                            </button>
-                        ))}
-                        <span className="mx-1 hidden h-5 w-px bg-line sm:block" />
-                        <select value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)} className="ui-input h-8 w-auto text-xs">
-                            <option value="all">Qualquer pagamento</option>
-                            <option value="paid">Pagas</option>
-                            <option value="pending">A receber</option>
-                        </select>
+            <header className="flex flex-col lg:flex-row justify-between gap-5 border-b border-slate-900 pb-6">
+                <div>
+                    <h1 className="text-2xl font-black text-white uppercase tracking-tight">
+                        Central de{" "}
+                        <span className="text-blue-500">
+                            Manutenções
+                        </span>
+                    </h1>
+
+                    <p className="text-slate-500 text-xs mt-2">
+                        Controle operacional completo de reparos,
+                        pagamentos e entregas.
+                    </p>
+                </div>
+
+                <button
+                    onClick={() => setShowAddModal(true)}
+                    className="flex items-center gap-2 px-5 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-white text-xs font-bold tracking-wide transition-all"
+                >
+                    <Plus size={15} />
+                    Nova Manutenção
+                </button>
+            </header>
+
+            {/* FILTROS */}
+
+            <section className="bg-slate-900/20 border border-slate-900 rounded-2xl p-5 grid grid-cols-1 lg:grid-cols-4 gap-5">
+
+                {/* busca */}
+
+                <div className="space-y-2">
+                    <p className="text-[11px] uppercase text-slate-500 font-semibold">
+                        Buscar
+                    </p>
+
+                    <div className="relative">
+                        <Search
+                            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600"
+                            size={14}
+                        />
+
+                        <input
+                            value={searchTerm}
+                            onChange={(e) =>
+                                setSearchTerm(e.target.value)
+                            }
+                            placeholder="Cliente, aparelho..."
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white outline-none focus:border-slate-700"
+                        />
                     </div>
                 </div>
 
-                {processedMaintenances.length === 0 ? (
-                    <EmptyState
-                        icon={Wrench}
-                        title="Nenhuma ordem de serviço"
-                        description="Não há manutenções para os filtros selecionados."
-                        action={<Button variant="primary" icon={Plus} onClick={() => setShowAddModal(true)}>Nova ordem de serviço</Button>}
+                {/* status */}
+
+                <div className="space-y-2">
+                    <p className="text-[11px] uppercase text-slate-500 font-semibold">
+                        Status
+                    </p>
+
+                    <select
+                        value={statusFilter}
+                        onChange={(e) =>
+                            setStatusFilter(e.target.value)
+                        }
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white outline-none"
+                    >
+                        <option value="all">
+                            Todos
+                        </option>
+
+                        {Object.entries(statusConfig).map(
+                            ([key, value]) => (
+                                <option
+                                    key={key}
+                                    value={key}
+                                >
+                                    {value.label}
+                                </option>
+                            )
+                        )}
+                    </select>
+                </div>
+
+                {/* pagamento */}
+
+                <div className="space-y-2">
+                    <p className="text-[11px] uppercase text-slate-500 font-semibold">
+                        Pagamento
+                    </p>
+
+                    <select
+                        value={paymentFilter}
+                        onChange={(e) =>
+                            setPaymentFilter(e.target.value)
+                        }
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white outline-none"
+                    >
+                        <option value="all">
+                            Todos
+                        </option>
+                        <option value="paid">
+                            Pagos
+                        </option>
+                        <option value="pending">
+                            Pendentes
+                        </option>
+                    </select>
+                </div>
+
+                {/* dia */}
+
+                <div className="space-y-2">
+                    <p className="text-[11px] uppercase text-slate-500 font-semibold">
+                        Data específica
+                    </p>
+
+                    <input
+                        type="date"
+                        value={selectedDay}
+                        onChange={(e) => {
+                            setSelectedDay(e.target.value);
+                            setPeriod("custom_day");
+                        }}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white outline-none"
                     />
-                ) : (
-                    <>
-                    <ul className="lg:hidden divide-y divide-line">
-                        {processedMaintenances.map((m) => {
-                            const cfg = statusConfig[m.status] || statusConfig.pending;
-                            const StatusIcon = cfg.icon;
-                            const isBusy = quickActionLoadingId === m.id;
-                            const created = new Date(m.createdAt);
-                            return (
-                                <ListRow
-                                    key={m.id}
-                                    leading={
-                                        <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-subtle border border-line text-xs font-semibold text-fg-muted">
-                                            {initials(m.customer)}
-                                        </span>
-                                    }
-                                    title={<>{m.customer || "Cliente"} <span className="font-normal text-fg-subtle">· {m.device || "Aparelho"}{m.model ? ` ${m.model}` : ""}</span></>}
-                                    value={formatBRL(m.value)}
-                                    subtitle={<span className="line-clamp-2">{m.issue || "Sem descrição"} · {isNaN(created.getTime()) ? "—" : created.toLocaleDateString("pt-BR")}</span>}
-                                    meta={<>
-                                        <Badge tone={cfg.tone}><StatusIcon size={12} /> {cfg.label}</Badge>
-                                        <button onClick={() => togglePaidStatus(m)} disabled={isBusy} className="disabled:opacity-50">
-                                            {isBusy ? <Loader size={14} className="animate-spin text-fg-subtle" />
-                                                : m.paid ? <Badge tone="success" dot>Pago</Badge> : <Badge tone="danger" dot>A receber</Badge>}
-                                        </button>
-                                    </>}
-                                    actions={<>
-                                        {nextStatusLabel[m.status] && (
-                                            <IconButton icon={ChevronsRight} label={nextStatusLabel[m.status]!} tone="primary" disabled={isBusy} onClick={() => advanceStatus(m)} />
-                                        )}
-                                        <IconButton icon={Printer} label="Imprimir O.S." onClick={() => handlePrintOS(m)} />
-                                        <IconButton icon={Edit2} label="Editar" onClick={() => openEditModal(m)} />
-                                        <IconButton icon={Trash2} label="Excluir" tone="danger" onClick={() => handleDelete(m.id)} />
-                                    </>}
-                                />
-                            );
-                        })}
-                    </ul>
-                    <div className="hidden lg:block overflow-x-auto">
-                        <table className="ui-table min-w-[980px]">
-                            <thead>
+                </div>
+            </section>
+
+            {/* PERÍODOS */}
+
+            <div className="flex flex-wrap gap-2">
+                {[
+                    {
+                        label: "Hoje",
+                        value: "today"
+                    },
+                    {
+                        label: "7 Dias",
+                        value: "week"
+                    },
+                    {
+                        label: "Mês",
+                        value: "month"
+                    },
+                    {
+                        label: "Ano",
+                        value: "year"
+                    }
+                ].map((item) => (
+                    <button
+                        key={item.value}
+                        onClick={() =>
+                            setPeriod(item.value as any)
+                        }
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${period === item.value
+                            ? "bg-slate-800 text-white border-slate-700"
+                            : "bg-transparent text-slate-500 border-slate-900 hover:text-slate-300"
+                            }`}
+                    >
+                        {item.label}
+                    </button>
+                ))}
+            </div>
+
+            {/* CARDS */}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+
+                <div className="bg-slate-900/30 border border-slate-900 rounded-2xl p-5">
+                    <p className="text-slate-500 text-xs uppercase">
+                        Faturamento
+                    </p>
+
+                    <h2 className="text-2xl font-bold text-white mt-2">
+                        R$ {metrics.total.toFixed(2)}
+                    </h2>
+                </div>
+
+                <div className="bg-slate-900/30 border border-slate-900 rounded-2xl p-5">
+                    <p className="text-slate-500 text-xs uppercase">
+                        Concluídos
+                    </p>
+
+                    <h2 className="text-2xl font-bold text-emerald-400 mt-2">
+                        {metrics.completed}
+                    </h2>
+                </div>
+
+                <div className="bg-slate-900/30 border border-slate-900 rounded-2xl p-5">
+                    <p className="text-slate-500 text-xs uppercase">
+                        Em andamento
+                    </p>
+
+                    <h2 className="text-2xl font-bold text-amber-400 mt-2">
+                        {metrics.pending}
+                    </h2>
+                </div>
+
+                <div className="bg-slate-900/30 border border-slate-900 rounded-2xl p-5">
+                    <p className="text-slate-500 text-xs uppercase">
+                        Pagos
+                    </p>
+
+                    <h2 className="text-2xl font-bold text-blue-400 mt-2">
+                        {metrics.paid}
+                    </h2>
+                </div>
+
+                <div className="bg-slate-900/30 border border-slate-900 rounded-2xl p-5">
+                    <p className="text-slate-500 text-xs uppercase">
+                        Pendentes
+                    </p>
+
+                    <h2 className="text-2xl font-bold text-red-400 mt-2">
+                        {metrics.unpaid}
+                    </h2>
+                </div>
+
+            </div>
+
+            {/* TABELA */}
+
+            <section className="bg-slate-900/10 border border-slate-900 rounded-2xl overflow-hidden">
+
+                <div className="overflow-x-auto">
+
+                    <table className="w-full">
+
+                        <thead>
+
+                            <tr className="bg-slate-950/40 border-b border-slate-900">
+
+                                <th className="px-6 py-4 text-left text-[10px] uppercase text-slate-500">
+                                    Cliente
+                                </th>
+
+                                <th className="px-6 py-4 text-left text-[10px] uppercase text-slate-500">
+                                    Aparelho
+                                </th>
+
+                                <th className="px-6 py-4 text-left text-[10px] uppercase text-slate-500">
+                                    Problema
+                                </th>
+
+                                <th className="px-6 py-4 text-center text-[10px] uppercase text-slate-500">
+                                    Status
+                                </th>
+
+                                <th className="px-6 py-4 text-center text-[10px] uppercase text-slate-500">
+                                    Valor
+                                </th>
+
+                                <th className="px-6 py-4 text-center text-[10px] uppercase text-slate-500">
+                                    Pagamento
+                                </th>
+
+                                <th className="px-6 py-4 text-right text-[10px] uppercase text-slate-500">
+                                    Data
+                                </th>
+
+                                <th className="px-6 py-4 text-center text-[10px] uppercase text-slate-500">
+                                    Ações
+                                </th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody className="divide-y divide-slate-900/50">
+
+                            {processedMaintenances.length === 0 && (
                                 <tr>
-                                    <th>Cliente</th>
-                                    <th>Aparelho</th>
-                                    <th>Defeito</th>
-                                    <th>Status</th>
-                                    <th className="!text-right">
-                                        <button onClick={toggleSort} className="inline-flex items-center gap-1 hover:text-fg">
-                                            Valor {sortDirection === "desc" ? <ArrowDown size={12} /> : <ArrowUp size={12} />}
-                                        </button>
-                                    </th>
-                                    <th>Pagamento</th>
-                                    <th>Entrada</th>
-                                    <th className="!text-right">Ações</th>
+                                    <td
+                                        colSpan={8}
+                                        className="text-center py-12 text-slate-600 text-xs"
+                                    >
+                                        Nenhuma manutenção encontrada.
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                {processedMaintenances.map((m) => {
-                                    const cfg = statusConfig[m.status] || statusConfig.pending;
-                                    const StatusIcon = cfg.icon;
-                                    const isBusy = quickActionLoadingId === m.id;
-                                    const created = new Date(m.createdAt);
-                                    return (
-                                        <tr key={m.id}>
-                                            <td>
-                                                <div className="flex items-center gap-3">
-                                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-subtle border border-line text-xs font-semibold text-fg-muted">
-                                                        {initials(m.customer)}
-                                                    </span>
-                                                    <div className="min-w-0">
-                                                        <p className="font-medium text-fg truncate">{m.customer || "—"}</p>
-                                                        {m.phone && <p className="text-xs text-fg-subtle inline-flex items-center gap-1"><Phone size={10} /> {m.phone}</p>}
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <p className="text-fg">{m.device || "—"}</p>
-                                                <p className="text-xs text-fg-subtle">{[m.brand, m.model].filter(Boolean).join(" · ")}</p>
-                                            </td>
-                                            <td className="max-w-[240px]"><p className="truncate" title={m.issue}>{m.issue}</p></td>
-                                            <td>
-                                                <Badge tone={cfg.tone}><StatusIcon size={12} /> {cfg.label}</Badge>
-                                            </td>
-                                            <td className="text-right font-semibold text-fg tabular">{formatBRL(m.value)}</td>
-                                            <td>
-                                                <button
-                                                    onClick={() => togglePaidStatus(m)}
-                                                    disabled={isBusy}
-                                                    title="Clique para alternar"
-                                                    className="disabled:opacity-50"
-                                                >
-                                                    {isBusy ? <Loader size={14} className="animate-spin text-fg-subtle" />
-                                                        : m.paid ? <Badge tone="success" dot>Pago</Badge> : <Badge tone="danger" dot>A receber</Badge>}
-                                                </button>
-                                            </td>
-                                            <td className="tabular whitespace-nowrap">
-                                                <span className="text-fg">{created.toLocaleDateString("pt-BR")}</span>
-                                                <span className="ml-1.5 text-xs text-fg-subtle">{created.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
-                                            </td>
-                                            <td>
-                                                <div className="flex items-center justify-end gap-0.5">
-                                                    {nextStatusLabel[m.status] && (
-                                                        <IconButton icon={ChevronsRight} label={nextStatusLabel[m.status]!} tone="primary" disabled={isBusy} onClick={() => advanceStatus(m)} />
+                            )}
+
+                            {processedMaintenances.map((m) => {
+                                const StatusIcon =
+                                    statusConfig[m.status].icon;
+
+                                const isLoading =
+                                    quickActionLoadingId ===
+                                    m.id;
+
+                                return (
+                                    <tr
+                                        key={m.id}
+                                        className="hover:bg-slate-900/20 transition-colors"
+                                    >
+
+                                        <td className="px-6 py-4">
+
+                                            <div className="flex flex-col">
+
+                                                <span className="text-xs text-white font-semibold">
+                                                    {m.customer}
+                                                </span>
+
+                                                <span className="text-[10px] text-slate-500 flex items-center gap-1 mt-1">
+                                                    <Phone size={10} />
+                                                    {m.phone}
+                                                </span>
+
+                                            </div>
+
+                                        </td>
+
+                                        <td className="px-6 py-4">
+
+                                            <div className="flex flex-col">
+
+                                                <span className="text-xs text-white font-semibold">
+                                                    {m.device}
+                                                </span>
+
+                                                <span className="text-[10px] text-slate-500">
+                                                    {m.brand} • {m.model}
+                                                </span>
+
+                                            </div>
+
+                                        </td>
+
+                                        <td className="px-6 py-4 max-w-[260px]">
+
+                                            <p className="text-xs text-slate-300 line-clamp-2">
+                                                {m.issue}
+                                            </p>
+
+                                        </td>
+
+                                        <td className="px-6 py-4 text-center">
+
+                                            <span
+                                                className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-semibold ${statusConfig[m.status].color}`}
+                                            >
+                                                <StatusIcon size={11} />
+                                                {
+                                                    statusConfig[
+                                                        m.status
+                                                    ].label
+                                                }
+                                            </span>
+
+                                        </td>
+
+                                        <td className="px-6 py-4 text-center">
+
+                                            <button
+                                                onClick={toggleSort}
+                                                className="inline-flex items-center gap-1 text-white font-bold text-xs"
+                                            >
+                                                R$ {m.value.toFixed(2)}
+
+                                                {sortDirection ===
+                                                    "desc" ? (
+                                                    <ArrowDown
+                                                        size={12}
+                                                        className="text-blue-500"
+                                                    />
+                                                ) : (
+                                                    <ArrowUp
+                                                        size={12}
+                                                        className="text-emerald-500"
+                                                    />
+                                                )}
+                                            </button>
+
+                                        </td>
+
+                                        <td className="px-6 py-4 text-center">
+
+                                            <button
+                                                onClick={() =>
+                                                    togglePaidStatus(m)
+                                                }
+                                                disabled={
+                                                    isLoading
+                                                }
+                                                className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ${m.paid
+                                                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                                    : "bg-red-500/10 text-red-400 border-red-500/20"
+                                                    }`}
+                                            >
+                                                {isLoading ? (
+                                                    <Loader
+                                                        size={11}
+                                                        className="animate-spin"
+                                                    />
+                                                ) : m.paid ? (
+                                                    "PAGO"
+                                                ) : (
+                                                    "PENDENTE"
+                                                )}
+                                            </button>
+
+                                        </td>
+
+                                        <td className="px-6 py-4 text-right">
+
+                                            <div className="flex flex-col items-end">
+
+                                                <span className="text-xs text-slate-400">
+                                                    {new Date(
+                                                        m.createdAt
+                                                    ).toLocaleDateString(
+                                                        "pt-BR"
                                                     )}
-                                                    <IconButton icon={Printer} label="Imprimir O.S." onClick={() => handlePrintOS(m)} />
-                                                    <IconButton icon={Edit2} label="Editar" onClick={() => openEditModal(m)} />
-                                                    <IconButton icon={Trash2} label="Excluir" tone="danger" onClick={() => handleDelete(m.id)} />
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                    </>
-                )}
-            </Card>
+                                                </span>
+
+                                                <span className="text-[10px] text-slate-600 mt-1">
+                                                    {new Date(
+                                                        m.createdAt
+                                                    ).toLocaleTimeString(
+                                                        "pt-BR",
+                                                        {
+                                                            hour: "2-digit",
+                                                            minute:
+                                                                "2-digit"
+                                                        }
+                                                    )}
+                                                </span>
+
+                                            </div>
+
+                                        </td>
+
+                                        <td className="px-6 py-4">
+
+                                            <div className="flex items-center justify-center gap-2">
+
+                                                {![
+                                                    "completed",
+                                                    "cancelled"
+                                                ].includes(
+                                                    m.status
+                                                ) && (
+                                                        <button
+                                                            onClick={() =>
+                                                                advanceStatus(
+                                                                    m
+                                                                )
+                                                            }
+                                                            className="p-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/10 transition-all"
+                                                        >
+                                                            <Zap
+                                                                size={
+                                                                    14
+                                                                }
+                                                                className="text-blue-400"
+                                                            />
+                                                        </button>
+                                                    )}
+
+                                                <button
+                                                    onClick={() =>
+                                                        openEditModal(
+                                                            m
+                                                        )
+                                                    }
+                                                    className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition-all"
+                                                >
+                                                    <Edit2
+                                                        size={
+                                                            14
+                                                        }
+                                                        className="text-slate-300"
+                                                    />
+                                                </button>
+
+                                                <button
+                                                    onClick={() =>
+                                                        handleDelete(
+                                                            m.id
+                                                        )
+                                                    }
+                                                    className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 transition-all"
+                                                >
+                                                    <Trash2
+                                                        size={
+                                                            14
+                                                        }
+                                                        className="text-red-400"
+                                                    />
+                                                </button>
+
+                                                <button
+                                                    onClick={() => handlePrintOS(m)}
+                                                >
+                                                    <Printer size={14} />
+                                                </button>
+
+
+                                            </div>
+
+                                        </td>
+
+                                    </tr>
+                                );
+                            })}
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </section>
 
             {/* MODAIS */}
 
             {showAddModal && (
                 <AddMaintenanceModal
-                    onClose={() => setShowAddModal(false)}
+                    onClose={() =>
+                        setShowAddModal(false)
+                    }
                     onSubmit={handleDataUpdate}
                     storeEmail={storeEmail}
                 />
@@ -657,6 +1002,6 @@ export default function MaintenancePage() {
                     onUpdate={handleDataUpdate}
                 />
             )}
-        </Page>
+        </div>
     );
 }

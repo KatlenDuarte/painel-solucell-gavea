@@ -44,7 +44,7 @@ export default function PrintOSModal({
             <div className="mt-6 flex justify-end gap-2">
                 <button
                     onClick={imprimir}
-                    className="bg-primary text-white px-4 py-2 rounded"
+                    className="bg-blue-600 text-white px-4 py-2 rounded"
                 >
                     Imprimir
                 </button>

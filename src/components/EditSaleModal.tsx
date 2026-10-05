@@ -1,7 +1,7 @@
 // components/EditSaleModal.tsx
 import React, { useState, useEffect } from "react";
 import { X, Save, CreditCard, Smartphone, DollarSign, Layers3, Plus, Trash2 } from "lucide-react";
-import { doc, updateDoc } from "../lib/firestore";
+import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 
 interface MultiplePayment {
@@ -129,7 +129,7 @@ export default function EditSaleModal({ sale, isOpen, onClose, onSave }: EditSal
                 {/* HEADER */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 shrink-0">
                     <div>
-                        <p className="text-[11px] font-medium text-slate-400">
+                        <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
                             Gerenciamento
                         </p>
                         <h2 className="text-lg font-semibold text-slate-100">
@@ -188,7 +188,7 @@ export default function EditSaleModal({ sale, isOpen, onClose, onSave }: EditSal
                                         }`}
                                     >
                                         <Icon size={15} className="shrink-0" />
-                                        <span className="text-xs font-medium tracking-wide">
+                                        <span className="text-xs font-medium uppercase tracking-wide">
                                             {option.label}
                                         </span>
                                     </button>
@@ -279,7 +279,7 @@ export default function EditSaleModal({ sale, isOpen, onClose, onSave }: EditSal
                         className={`px-5 py-2 text-xs font-medium rounded-xl transition-all ${
                             isMultipleError
                                 ? "bg-slate-800 text-slate-500 cursor-not-allowed"
-                                : "bg-slate-100 text-slate-950 hover:bg-slate-50"
+                                : "bg-slate-100 text-slate-950 hover:bg-white"
                         }`}
                     >
                         Salvar

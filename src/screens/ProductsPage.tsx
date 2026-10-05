@@ -4,14 +4,12 @@ import {
     Edit, Trash2, Package, TriangleAlert, FileText,
     ArrowUp, ArrowDown, DollarSign, Layers, AlertCircle, Scan, Printer
 } from "lucide-react";
-import { Page, PageHeader, Card, StatCard, Button, IconButton, Badge, SearchInput, EmptyState, LoadingState } from "../components/ui";
-import { formatBRL } from "../lib/format";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import bwipjs from "bwip-js"; // 🌟 Biblioteca para gerar o desenho do código de barras real no PDF
 
-import { useStoreData } from "../contexts/StoreDataContext";
-import { deleteProduct, updateProduct } from "../services/productsService";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { fetchProducts, deleteProduct, updateProduct } from "../services/productsService";
 
 import AddProductModal from "../components/AddProductModal";
 import EditStockModal from "../components/EditStockModal";
@@ -46,7 +44,11 @@ type SortField = "name" | "stock" | "price";
 type SortDirection = "asc" | "desc";
 
 export default function ProductsContent() {
-    const { storeEmail: effectiveStoreEmail, products: productDocs, productsLoading: loading } = useStoreData();
+    const auth = getAuth();
+
+    const [effectiveStoreEmail, setEffectiveStoreEmail] = useState<string>("");
+    const [products, setProducts] = useState<Product[]>([]);
+    const [loading, setLoading] = useState(true);
 
     const [selectedCategory, setSelectedCategory] = useState("all");
     const [searchTerm, setSearchTerm] = useState("");
@@ -74,35 +76,56 @@ export default function ProductsContent() {
     const barcodeBuffer = useRef<string>("");
     const lastKeyTime = useRef<number>(0);
 
+    const STORE_MAPPING: Record<string, string> = {
+        "kluivert@solucell.com": "kluivert@solucell.com",
+        "funcionarios@solucell.com": "kluivert@solucell.com",
+    };
+
     const determineStatus = (stock: number, minStock: number) => {
         if (stock <= 0) return "critical";
         if (stock <= minStock) return "low";
         return "ok";
     };
 
-    // Produtos chegam em tempo real pelo listener compartilhado (StoreDataContext),
-    // sem reler a coleção inteira a cada visita ou alteração.
-    const products = useMemo<Product[]>(() => productDocs.map((docSnap) => {
-        const p: any = { id: docSnap.id, ...docSnap.data() };
-        const stock = Number(p.stock || 0);
-        const minStock = Number(p.minStock || 5);
-        return {
-            ...p,
-            name: String(p.name ?? ""),
-            brand: String(p.brand ?? ""),
-            model: String(p.model ?? ""),
-            category: String(p.category ?? ""),
-            stock,
-            minStock,
-            price: Number(p.price || 0),
-            costPrice: p.costPrice !== undefined ? p.costPrice : null,
-            barcode: p.barcode || null,
-            status: determineStatus(stock, minStock)
-        };
-    }), [productDocs]);
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (user) {
+                const realStore = STORE_MAPPING[user.email!] || user.email!;
+                setEffectiveStoreEmail(realStore);
+            }
+        });
+        return () => unsubscribe();
+    }, [auth]);
 
-    // Mantido para os callbacks dos modais: o listener já reflete as alterações.
-    const loadProducts = useCallback(async () => {}, []);
+    const loadProducts = useCallback(async () => {
+        if (!effectiveStoreEmail) return;
+        setLoading(true);
+        try {
+            const data = await fetchProducts(effectiveStoreEmail);
+            const formatted = data.map((p: any) => {
+                const stock = Number(p.stock || 0);
+                const minStock = Number(p.minStock || 5);
+                return {
+                    ...p,
+                    stock,
+                    minStock,
+                    price: Number(p.price || 0),
+                    costPrice: p.costPrice !== undefined ? p.costPrice : null,
+                    barcode: p.barcode || null,
+                    status: determineStatus(stock, minStock)
+                };
+            });
+            setProducts(formatted);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    }, [effectiveStoreEmail]);
+
+    useEffect(() => {
+        if (effectiveStoreEmail) loadProducts();
+    }, [effectiveStoreEmail, loadProducts]);
 
     // 🌟 ADICIONAR PRODUTO À FILA DE ETIQUETAS (ATUALIZADO PARA SUPORTAR EDIÇÃO)
     const handleAddToLabelQueue = async (
@@ -153,6 +176,8 @@ export default function ProductsContent() {
                     )
                 };
 
+                // Atualiza a lista local da tabela em background para refletir a mudança visual
+                setProducts(prev => prev.map(p => p.id === product.id ? targetProduct : p));
             } catch (err) {
                 console.error("Erro ao atualizar produto antes da impressão:", err);
                 alert("Erro ao salvar novos dados do produto, mas prosseguindo com a etiqueta antiga.");
@@ -361,8 +386,16 @@ export default function ProductsContent() {
                 name: newName, price: newPrice, stock: newStock, minStock: newMinStock, costPrice: newCostPrice, barcode: newBarcode,
             });
 
+            setProducts(prevProducts =>
+                prevProducts.map(p =>
+                    p.id === productId
+                        ? { ...p, name: newName, price: newPrice, stock: newStock, minStock: newMinStock, costPrice: newCostPrice, barcode: newBarcode, status: determineStatus(newStock, newMinStock) }
+                        : p
+                )
+            );
             setIsEditStockModalOpen(false);
             setSelectedProduct(null);
+            await loadProducts();
         } catch (err) {
             console.error(err);
             alert("Erro ao salvar alterações.");
@@ -373,6 +406,7 @@ export default function ProductsContent() {
         if (!window.confirm(`Tem certeza que deseja excluir ${name}?`)) return;
         try {
             await deleteProduct(id);
+            setProducts(prev => prev.filter(p => p.id !== id));
         } catch (err) {
             console.error(err);
         }
@@ -401,12 +435,10 @@ export default function ProductsContent() {
     }, [products, selectedCategory, searchTerm, isReplenishmentMode, sortField, sortDirection]);
 
     const inventoryStats = useMemo(() => {
-        const totalItems = products.reduce((acc, p) => acc + Math.max(0, p.stock), 0);
-        const totalValue = products.reduce((acc, p) => acc + (p.price * Math.max(0, p.stock)), 0);
-        const totalCost = products.reduce((acc, p) => acc + ((Number(p.costPrice) || 0) * Math.max(0, p.stock)), 0);
+        const totalItems = products.reduce((acc, p) => acc + p.stock, 0);
+        const totalValue = products.reduce((acc, p) => acc + (p.price * p.stock), 0);
         const criticalAlerts = products.filter(p => p.status !== "ok").length;
-        const outOfStock = products.filter(p => p.stock <= 0).length;
-        return { totalItems, totalValue, totalCost, criticalAlerts, outOfStock };
+        return { totalItems, totalValue, criticalAlerts };
     }, [products]);
 
     const handleSort = (field: SortField) => {
@@ -420,193 +452,260 @@ export default function ProductsContent() {
 
     const totalLabelsInQueue = labelQueue.reduce((acc, item) => acc + item.quantity, 0);
 
-    if (loading) return <LoadingState label="Carregando estoque..." />;
-
-    const categories = [
-        { id: "all", label: "Todos", icon: Package },
-        { id: "peliculas", label: "Películas", icon: Shield },
-        { id: "cases", label: "Capas", icon: Smartphone },
-        { id: "cabos", label: "Cabos", icon: Cable },
-        { id: "acessorios", label: "Acessórios", icon: Headphones },
-    ];
-    const countByCategory = (id: string) => id === "all" ? products.length : products.filter(p => p.category === id).length;
-
-    const sortHeader = (field: SortField, label: string, align: "left" | "right" = "left") => (
-        <button
-            onClick={() => handleSort(field)}
-            className={`inline-flex items-center gap-1 hover:text-fg ${sortField === field ? "text-fg" : ""} ${align === "right" ? "flex-row-reverse" : ""}`}
-        >
-            {label}
-            {sortField === field && (sortDirection === "asc" ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
-        </button>
-    );
-
-    const stockBadge = (p: Product) => (
-        <Badge tone={p.status === "critical" ? "danger" : p.status === "low" ? "warning" : "success"} className="tabular">
-            {p.stock <= 0 ? "Esgotado" : `${p.stock} un`}
-        </Badge>
-    );
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-slate-950 flex flex-col gap-3 items-center justify-center text-slate-400 font-sans">
+                <div className="h-7 w-7 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-xs uppercase font-bold tracking-widest text-slate-500">Buscando Inventário...</span>
+            </div>
+        );
+    }
 
     return (
-        <Page>
-            <PageHeader
-                title="Produtos"
-                description={<span className="inline-flex items-center gap-1.5"><Scan size={14} className="text-success" /> Leitor ativo: ao bipar um código, o produto entra na fila de etiquetas.</span>}
-                actions={
-                    <>
-                        {totalLabelsInQueue > 0 && (
-                            <Button icon={Printer} loading={isGeneratingLabels} onClick={() => setIsPrintConfigOpen(true)}>
-                                Imprimir {totalLabelsInQueue} {totalLabelsInQueue === 1 ? "etiqueta" : "etiquetas"}
-                            </Button>
-                        )}
-                        <Button variant="primary" icon={Plus} onClick={() => setIsAddProductModalOpen(true)}>Novo produto</Button>
-                    </>
-                }
-            />
+        <div className="min-h-screen bg-[#020617] text-slate-200 p-4 sm:p-6 md:p-10 space-y-6 md:space-y-8 font-sans antialiased">
 
-            <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-                <StatCard label="Itens em estoque" value={`${inventoryStats.totalItems.toLocaleString("pt-BR")} un`} icon={Layers} tone="info" hint={`${products.length} produtos cadastrados`} />
-                <StatCard label="Valor de venda" value={formatBRL(inventoryStats.totalValue)} icon={DollarSign} tone="success" hint="Preço × quantidade em estoque" />
-                <StatCard label="Custo do estoque" value={formatBRL(inventoryStats.totalCost)} icon={FileText} hint="Com base no preço de custo" />
-                <StatCard label="Precisam de reposição" value={inventoryStats.criticalAlerts} icon={AlertCircle} tone="danger"
-                    hint={`${inventoryStats.outOfStock} esgotados`}
-                    active={isReplenishmentMode}
-                    onClick={() => setIsReplenishmentMode(!isReplenishmentMode)} />
+            {/* Topo / Header */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-900 pb-4">
+                <div>
+                    <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">INVENTÁRIO<span className="text-emerald-500">.</span></h1>
+                    <p className="text-slate-500 text-xs sm:text-sm flex items-center gap-1.5">
+                        <Scan size={14} className="text-emerald-500 animate-pulse" /> Scanner ativo: ao bipar, o item entra na fila de impressão.
+                    </p>
+                </div>
+                <div className="flex gap-2 w-full sm:w-auto flex-wrap">
+                    {/* Botão Dinâmico da Fila de Etiquetas */}
+                    {totalLabelsInQueue > 0 && (
+                        <button
+                            onClick={() => setIsPrintConfigOpen(true)}
+                            disabled={isGeneratingLabels}
+                            className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-slate-950 rounded-xl text-xs font-black uppercase transition-all shadow-lg shadow-amber-600/20"
+                        >
+                            <Printer size={16} /> Imprimir {totalLabelsInQueue} Etiqueta(s) Mista(s)
+                        </button>
+                    )}
+
+                    <button onClick={() => setIsAddProductModalOpen(true)} className="flex-1 sm:flex-initial flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 px-5 py-2.5 rounded-xl font-black text-slate-950 text-xs uppercase transition-all shadow-lg shadow-emerald-500/10">
+                        <Plus size={18} /> Novo Produto
+                    </button>
+                </div>
             </div>
 
-            <Card padded={false} className="overflow-hidden">
-                <div className="space-y-3 border-b border-line p-4">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                        <div className="-mx-1 flex gap-1 overflow-x-auto px-1">
-                            {categories.map(c => {
-                                const Icon = c.icon;
-                                const active = selectedCategory === c.id;
-                                return (
-                                    <button
-                                        key={c.id}
-                                        onClick={() => setSelectedCategory(c.id)}
-                                        className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm font-medium transition-colors ${active ? "bg-hover text-fg" : "text-fg-subtle hover:bg-hover/70 hover:text-fg"}`}
-                                    >
-                                        <Icon size={15} className={active ? "text-primary" : ""} />
-                                        {c.label}
-                                        <span className="text-xs text-fg-faint tabular">{countByCategory(c.id)}</span>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                        <div className="flex gap-2">
-                            <SearchInput icon={Search} value={searchTerm} onChange={setSearchTerm} placeholder="Nome, marca, modelo ou código..." className="flex-1 lg:w-80" />
-                            <Button icon={TriangleAlert} onClick={() => setIsReplenishmentMode(!isReplenishmentMode)}
-                                className={isReplenishmentMode ? "!border-danger !text-danger" : ""}>
-                                <span className="hidden sm:inline">{isReplenishmentMode ? "Mostrando reposição" : "Reposição"}</span>
-                            </Button>
-                        </div>
+            {/* Cards Informativos */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 flex items-center gap-4">
+                    <div className="p-3 bg-blue-500/10 text-blue-400 rounded-xl border border-blue-500/20"><Layers size={20} /></div>
+                    <div>
+                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Volume de Itens</p>
+                        <h4 className="text-xl font-black text-white">{inventoryStats.totalItems} un</h4>
                     </div>
                 </div>
+                <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 flex items-center gap-4">
+                    <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20"><DollarSign size={20} /></div>
+                    <div>
+                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Custo de Estoque</p>
+                        <h4 className="text-xl font-black text-white">R$ {inventoryStats.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4>
+                    </div>
+                </div>
+                <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 flex items-center gap-4">
+                    <div className="p-3 bg-red-500/10 text-red-400 rounded-xl border border-red-500/20"><AlertCircle size={20} /></div>
+                    <div>
+                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Produtos Instáveis</p>
+                        <h4 className="text-xl font-black text-white">{inventoryStats.criticalAlerts} pendentes</h4>
+                    </div>
+                </div>
+            </div>
 
-                {filteredProducts.length === 0 ? (
-                    <EmptyState
-                        icon={Package}
-                        title="Nenhum produto encontrado"
-                        description={products.length === 0 ? "Cadastre o primeiro produto para começar a controlar o estoque." : "Ajuste a busca, a categoria ou o filtro de reposição."}
-                        action={products.length === 0 && <Button variant="primary" icon={Plus} onClick={() => setIsAddProductModalOpen(true)}>Novo produto</Button>}
-                    />
-                ) : (
-                    <>
-                        {/* Mobile */}
-                        <ul className="divide-y divide-line md:hidden">
-                            {filteredProducts.map((p) => (
-                                <li key={p.id} className="flex items-start gap-3 p-4">
-                                    <div className="min-w-0 flex-1">
-                                        <p className="font-medium text-fg">{p.name}</p>
-                                        <p className="text-xs text-fg-subtle">{[p.brand, p.model].filter(Boolean).join(" · ")}</p>
-                                        <div className="mt-2 flex items-center gap-2">
-                                            {stockBadge(p)}
-                                            <span className="text-sm font-semibold text-fg tabular">{formatBRL(p.price)}</span>
-                                        </div>
+            {/* Painel de Filtros Avançados */}
+            <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl md:rounded-3xl p-4 md:p-5 space-y-4">
+                <div className="flex flex-col md:flex-row gap-3">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                        <input
+                            type="text"
+                            placeholder="Buscar por nome, marca, modelo ou código..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-11 pr-4 py-2.5 text-xs font-medium focus:border-emerald-500 outline-none placeholder-slate-600 text-white transition-colors"
+                        />
+                    </div>
+                    <button
+                        onClick={() => setIsReplenishmentMode(!isReplenishmentMode)}
+                        className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase flex items-center justify-center gap-2 transition-all border ${isReplenishmentMode ? "bg-red-500/20 text-red-400 border-red-500/30" : "bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-800/50"
+                            }`}
+                    >
+                        <TriangleAlert size={16} />
+                        {isReplenishmentMode ? "Ver Tudo" : "Filtro Reposição"}
+                    </button>
+                </div>
+
+                {/* Categorias */}
+                <div className="overflow-x-auto pb-1 flex gap-2 scrollbar-none -mx-4 px-4 md:mx-0 md:px-0">
+                    <CategoryBtn active={selectedCategory === "all"} onClick={() => setSelectedCategory("all")} icon={<Package size={14} />} label="Todos" />
+                    <CategoryBtn active={selectedCategory === "peliculas"} onClick={() => setSelectedCategory("peliculas")} icon={<Shield size={14} />} label="Películas" />
+                    <CategoryBtn active={selectedCategory === "cases"} onClick={() => setSelectedCategory("cases")} icon={<Smartphone size={14} />} label="Cases" />
+                    <CategoryBtn active={selectedCategory === "cabos"} onClick={() => setSelectedCategory("cabos")} icon={<Cable size={14} />} label="Cabos" />
+                    <CategoryBtn active={selectedCategory === "acessorios"} onClick={() => setSelectedCategory("acessorios")} icon={<Headphones size={14} />} label="Acessórios" />
+                </div>
+
+                {/* Ordenação rápida */}
+                <div className="flex flex-col xs:flex-row xs:items-center gap-2 pt-3 border-t border-slate-800/60">
+                    <span className="text-[10px] uppercase font-black text-slate-500 tracking-wider">Ordenar por:</span>
+                    <div className="flex gap-1.5 flex-wrap">
+                        <SortButton field="stock" label="Estoque" currentField={sortField} direction={sortDirection} onClick={handleSort} />
+                        <SortButton field="price" label="Preço" currentField={sortField} direction={sortDirection} onClick={handleSort} />
+                        <SortButton field="name" label="Nome" currentField={sortField} direction={sortDirection} onClick={handleSort} />
+                    </div>
+                </div>
+            </div>
+
+            {/* Grid Mobile / Tabela Desktop */}
+            <div>
+                {/* VISÃO EM CARDS (Mobile) */}
+                <div className="grid grid-cols-1 gap-3 md:hidden">
+                    {filteredProducts.length === 0 ? (
+                        <div className="text-center py-10 bg-slate-900/30 border border-slate-800 rounded-2xl text-slate-500 text-xs font-medium">
+                            Nenhum produto atende aos filtros atuais.
+                        </div>
+                    ) : (
+                        filteredProducts.map((p) => (
+                            <div key={p.id} className="bg-slate-900/40 border border-slate-800 rounded-xl p-4 space-y-3">
+                                <div className="flex justify-between items-start gap-2">
+                                    <div>
+                                        <h4 className="font-bold text-white text-sm leading-tight">{p.name}</h4>
+                                        <p className="text-slate-500 text-[11px] mt-0.5">{p.brand} • {p.model}</p>
                                     </div>
-                                    <div className="flex">
-                                        <IconButton icon={Printer} label="Adicionar à fila de etiquetas" onClick={() => handleAddToLabelQueue(p)} />
-                                        <IconButton icon={Edit} label="Editar" onClick={() => { setSelectedProduct(p); setIsEditStockModalOpen(true); }} />
-                                        <IconButton icon={Trash2} label="Excluir" tone="danger" onClick={() => handleDeleteProduct(p.id, p.name)} />
+                                    <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase shrink-0 ${p.status === 'critical' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
+                                        p.status === 'low' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                                            'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                        }`}>{p.stock} un</span>
+                                </div>
+
+                                <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-900">
+                                    <div>
+                                        <span className="text-slate-500 block text-[9px] font-bold uppercase tracking-wider">Preço base</span>
+                                        <span className="font-black text-emerald-400 text-sm">R$ {p.price.toFixed(2)}</span>
                                     </div>
-                                </li>
-                            ))}
-                        </ul>
+                                    <div className="flex gap-1.5">
+                                        <button
+                                            onClick={() => handleAddToLabelQueue(p)}
+                                            className="p-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-amber-400 transition-colors"
+                                            title="Adicionar à fila de etiquetas"
+                                        >
+                                            <Printer size={14} />
+                                        </button>
+                                        <button
+                                            onClick={() => { setSelectedProduct(p); setIsEditStockModalOpen(true); }}
+                                            className="p-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-emerald-400 transition-colors"
+                                        >
+                                            <Edit size={14} />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDeleteProduct(p.id, p.name)}
+                                            className="p-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-red-400 transition-colors"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
 
-                        {/* Desktop */}
-                        <div className="hidden overflow-x-auto md:block">
-                            <table className="ui-table">
-                                <thead>
-                                    <tr>
-                                        <th>{sortHeader("name", "Produto")}</th>
-                                        <th>Código</th>
-                                        <th className="!text-center">Mínimo</th>
-                                        <th>{sortHeader("stock", "Estoque")}</th>
-                                        <th className="!text-right">Custo</th>
-                                        <th className="!text-right">{sortHeader("price", "Preço", "right")}</th>
-                                        <th className="!text-right">Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredProducts.map((p) => (
-                                        <tr key={p.id} className="group">
-                                            <td>
-                                                <p className="font-medium text-fg">{p.name}</p>
-                                                <p className="text-xs text-fg-subtle">{[p.brand, p.model].filter(Boolean).join(" · ") || "—"}</p>
-                                            </td>
-                                            <td className="font-mono text-xs text-fg-subtle">{p.barcode || "—"}</td>
-                                            <td className="text-center tabular">{p.minStock}</td>
-                                            <td>{stockBadge(p)}</td>
-                                            <td className="text-right tabular text-fg-subtle">{p.costPrice ? formatBRL(Number(p.costPrice)) : "—"}</td>
-                                            <td className="text-right font-semibold text-fg tabular">{formatBRL(p.price)}</td>
-                                            <td>
-                                                <div className="flex justify-end gap-0.5">
-                                                    <IconButton icon={Printer} label="Adicionar à fila de etiquetas" tone="primary" onClick={() => handleAddToLabelQueue(p)} />
-                                                    <IconButton icon={Edit} label="Editar" onClick={() => { setSelectedProduct(p); setIsEditStockModalOpen(true); }} />
-                                                    <IconButton icon={Trash2} label="Excluir" tone="danger" onClick={() => handleDeleteProduct(p.id, p.name)} />
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                        <div className="border-t border-line px-4 py-3 text-xs text-fg-subtle">
-                            Mostrando {filteredProducts.length} de {products.length} produtos
-                        </div>
-                    </>
-                )}
-            </Card>
+                {isPrintConfigOpen && (
+                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+                        <div className="bg-slate-900 p-6 rounded-xl w-[320px] space-y-4 border border-slate-700">
 
-            {isPrintConfigOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-[2px]" onClick={() => setIsPrintConfigOpen(false)}>
-                    <div className="w-full max-w-sm rounded-xl border border-line bg-surface shadow-2xl" onClick={e => e.stopPropagation()}>
-                        <div className="border-b border-line px-5 py-4">
-                            <h3 className="text-base font-semibold text-fg">Imprimir etiquetas</h3>
-                            <p className="mt-0.5 text-sm text-fg-subtle">{totalLabelsInQueue} etiquetas na fila. Escolha onde começar na folha.</p>
-                        </div>
-                        <div className="p-5">
-                            <label className="ui-label" htmlFor="startpos">Posição inicial (1 a 48)</label>
+                            <h2 className="text-white font-bold text-sm">
+                                Configurar Impressão
+                            </h2>
+
+                            <label className="text-xs text-slate-400">
+                                Iniciar na posição (1 a 48)
+                            </label>
+
                             <input
-                                id="startpos"
                                 type="number"
                                 min={1}
                                 max={48}
                                 value={startPosition}
                                 onChange={(e) => setStartPosition(Number(e.target.value))}
-                                className="ui-input"
+                                className="w-full px-3 py-2 rounded bg-slate-800 text-white text-sm"
                             />
-                            <p className="mt-2 text-xs text-fg-subtle">Útil para reaproveitar folhas já usadas parcialmente.</p>
-                        </div>
-                        <div className="flex justify-end gap-2 border-t border-line px-5 py-4">
-                            <Button variant="ghost" onClick={() => setLabelQueue([])}>Limpar fila</Button>
-                            <Button onClick={() => setIsPrintConfigOpen(false)}>Cancelar</Button>
-                            <Button variant="primary" icon={Printer} onClick={() => { setIsPrintConfigOpen(false); exportMixedLabelsPDF(); }}>Gerar PDF</Button>
+
+                            <div className="flex gap-2 justify-end">
+                                <button
+                                    onClick={() => setIsPrintConfigOpen(false)}
+                                    className="px-3 py-2 text-xs text-slate-400"
+                                >
+                                    Cancelar
+                                </button>
+
+                                <button
+                                    onClick={() => {
+                                        setIsPrintConfigOpen(false);
+                                        exportMixedLabelsPDF();
+                                    }}
+                                    className="px-3 py-2 text-xs bg-emerald-500 text-black font-bold rounded"
+                                >
+                                    Imprimir
+                                </button>
+                            </div>
                         </div>
                     </div>
+                )}
+
+                {/* VISÃO EM TABELA TRADICIONAL (Desktop) */}
+                <div className="hidden md:block bg-slate-900/40 border border-slate-800 rounded-2xl overflow-hidden">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-slate-950 text-[10px] uppercase font-black text-slate-400 tracking-wider border-b border-slate-800">
+                                <th className="px-6 py-4">Produto</th>
+                                <th className="px-6 py-4">Marca / Modelo</th>
+                                <th className="px-6 py-4 text-center">Mínimo</th>
+                                <th className="px-6 py-4 text-center">Estoque</th>
+                                <th className="px-6 py-4 text-right">Preço</th>
+                                <th className="px-6 py-4 text-right">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/40">
+                            {filteredProducts.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="text-center py-10 text-sm text-slate-500 font-medium">Nenhum produto correspondente.</td>
+                                </tr>
+                            ) : (
+                                filteredProducts.map((p) => (
+                                    <tr key={p.id} className="hover:bg-slate-900/50 transition-colors group">
+                                        <td className="px-6 py-4 font-bold text-white text-sm">{p.name}</td>
+                                        <td className="px-6 py-4 text-slate-400 text-xs font-medium">{p.brand} <span className="text-slate-600">•</span> {p.model}</td>
+                                        <td className="px-6 py-4 text-center text-slate-400 text-sm font-semibold">{p.minStock}</td>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className={`px-3 py-1 rounded-full text-xs font-black inline-block min-w-[65px] ${p.status === 'critical' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
+                                                p.status === 'low' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                                                    'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                                }`}>{p.stock} un</span>
+                                        </td>
+                                        <td className="px-6 py-4 text-right font-black text-emerald-400 text-sm">R$ {p.price.toFixed(2)}</td>
+                                        <td className="px-6 py-4 text-right">
+                                            <div className="flex justify-end gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                                <button onClick={() => handleAddToLabelQueue(p)} className="p-2 hover:bg-amber-500/10 rounded-xl text-amber-400 transition-colors" title="Adicionar à fila de etiquetas">
+                                                    <Printer size={16} />
+                                                </button>
+                                                <button onClick={() => { setSelectedProduct(p); setIsEditStockModalOpen(true); }} className="p-2 hover:bg-emerald-500/10 rounded-xl text-emerald-400 transition-colors">
+                                                    <Edit size={16} />
+                                                </button>
+                                                <button onClick={() => handleDeleteProduct(p.id, p.name)} className="p-2 hover:bg-red-500/10 rounded-xl text-red-400 transition-colors">
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
                 </div>
-            )}
+            </div>
 
             {/* Modais */}
             <AddProductModal
@@ -625,16 +724,44 @@ export default function ProductsContent() {
                 />
             )}
 
+            {/* 🌟 NOVO MODAL CUSTOMIZADO DE ETIQUETAS */}
+            {/* 🌟 MODAL DE ETIQUETAS COM SUPORTE A EDIÇÃO INTEGRADA */}
             <LabelActionModal
                 isOpen={isLabelModalOpen}
                 onClose={() => { setIsLabelModalOpen(false); setProductPendingLabel(null); }}
-                product={productPendingLabel}
+                product={productPendingLabel} // Enviando o objeto completo agora
                 onConfirm={(qty, updatedData) => {
                     if (productPendingLabel) {
                         handleAddToLabelQueue(productPendingLabel, qty, updatedData);
                     }
                 }}
             />
-        </Page>
+        </div>
+    );
+}
+
+function CategoryBtn({ active, onClick, icon, label }: any) {
+    return (
+        <button
+            onClick={onClick}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border whitespace-nowrap shrink-0 ${active ? "bg-emerald-500 border-emerald-400 text-slate-950 font-black" : "bg-slate-900/90 border-slate-800 text-slate-400 hover:bg-slate-800"
+                }`}
+        >
+            {icon} {label}
+        </button>
+    );
+}
+
+function SortButton({ field, label, currentField, direction, onClick }: any) {
+    const isActive = currentField === field;
+    return (
+        <button
+            onClick={() => onClick(field)}
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all uppercase ${isActive ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-black" : "hover:bg-slate-900 text-slate-400"
+                }`}
+        >
+            {label}
+            {isActive && (direction === "asc" ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
+        </button>
     );
 }

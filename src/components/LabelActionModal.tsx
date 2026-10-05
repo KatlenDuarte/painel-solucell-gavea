@@ -91,7 +91,7 @@ export default function LabelActionModal({ isOpen, onClose, product, onConfirm }
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
-            <div className="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 relative overflow-hidden max-h-[90vh] overflow-y-auto style-scrollbar">
+            <div className="w-full max-w-xl bg-[#090d16] border border-slate-800 rounded-2xl shadow-2xl p-6 relative overflow-hidden max-h-[90vh] overflow-y-auto style-scrollbar">
                 
                 {/* Indicador estético superior */}
                 <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-amber-500 via-emerald-500 to-blue-500" />
@@ -99,8 +99,8 @@ export default function LabelActionModal({ isOpen, onClose, product, onConfirm }
                 {/* Header */}
                 <div className="flex justify-between items-start mb-5">
                     <div>
-                        <span className="text-xs font-semibold text-amber-500">Impressão & Ajuste Rápido</span>
-                        <h3 className="text-lg font-semibold text-slate-50 mt-1 leading-tight">Configurar Etiqueta</h3>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-amber-500">Impressão & Ajuste Rápido</span>
+                        <h3 className="text-lg font-black text-white mt-1 leading-tight">Configurar Etiqueta</h3>
                     </div>
                     <button 
                         onClick={onClose} 
@@ -115,7 +115,7 @@ export default function LabelActionModal({ isOpen, onClose, product, onConfirm }
                     
                     {/* SEÇÃO 1: DADOS CADASTRAIS DA ETIQUETA */}
                     <div className="space-y-4 bg-slate-900/30 border border-slate-800/80 rounded-xl p-4">
-                        <span className="text-xs font-semibold text-slate-400 block mb-1">Informações Visuais do Produto</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Informações Visuais do Produto</span>
                         
                         <div>
                             <label className="block text-xs font-medium text-slate-400 mb-1.5">Nome na Etiqueta</label>
@@ -124,7 +124,7 @@ export default function LabelActionModal({ isOpen, onClose, product, onConfirm }
                                 required
                                 value={newName}
                                 onChange={(e) => setNewName(e.target.value)}
-                                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-50 focus:border-blue-500 outline-none transition-all"
+                                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:border-blue-500 outline-none transition-all"
                             />
                         </div>
 
@@ -136,7 +136,7 @@ export default function LabelActionModal({ isOpen, onClose, product, onConfirm }
                                     type="text"
                                     value={newCostPrice}
                                     onChange={(e) => setNewCostPrice(e.target.value)}
-                                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-50 focus:border-blue-500 outline-none transition-all"
+                                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:border-blue-500 outline-none transition-all"
                                     placeholder="0.00"
                                 />
                             </div>
@@ -148,7 +148,7 @@ export default function LabelActionModal({ isOpen, onClose, product, onConfirm }
                                     required
                                     value={newPrice}
                                     onChange={(e) => setNewPrice(e.target.value)}
-                                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-50 focus:border-blue-500 outline-none transition-all"
+                                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:border-blue-500 outline-none transition-all"
                                 />
                             </div>
 
@@ -162,7 +162,7 @@ export default function LabelActionModal({ isOpen, onClose, product, onConfirm }
                                     required
                                     value={newStock}
                                     onChange={(e) => setNewStock(e.target.value)}
-                                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-50 focus:border-blue-500 outline-none transition-all"
+                                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:border-blue-500 outline-none transition-all"
                                 />
                             </div>
 
@@ -176,7 +176,7 @@ export default function LabelActionModal({ isOpen, onClose, product, onConfirm }
                                     min="0"
                                     value={newMinStock}
                                     onChange={(e) => setNewMinStock(e.target.value)}
-                                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-50 focus:border-amber-500 outline-none transition-all"
+                                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:border-amber-500 outline-none transition-all"
                                 />
                             </div>
                         </div>
@@ -191,7 +191,7 @@ export default function LabelActionModal({ isOpen, onClose, product, onConfirm }
                                         type="text"
                                         value={newBarcode}
                                         onChange={(e) => setNewBarcode(e.target.value)}
-                                        className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-50 placeholder-slate-600 focus:border-blue-500 outline-none transition-all"
+                                        className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-600 focus:border-blue-500 outline-none transition-all"
                                         placeholder="Digite ou bipe o código..."
                                     />
                                 </div>
@@ -210,12 +210,12 @@ export default function LabelActionModal({ isOpen, onClose, product, onConfirm }
 
                     {/* SEÇÃO 2: QUANTIDADE DE CÓPIAS PARA IMPRESSÃO */}
                     <div className="space-y-2">
-                        <label className="text-xs font-semibold text-slate-400">Quantidade de Cópias (Etiquetas)</label>
+                        <label className="text-[10px] uppercase font-black text-slate-400 tracking-wider">Quantidade de Cópias (Etiquetas)</label>
                         <div className="flex items-center gap-3 bg-slate-950 border border-slate-800 rounded-xl p-2 justify-between">
                             <button 
                                 type="button"
                                 onClick={() => setQuantity(prev => Math.max(1, prev - 1))}
-                                className="p-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg text-slate-400 hover:text-slate-50 transition-colors"
+                                className="p-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"
                             >
                                 <Minus size={14} />
                             </button>
@@ -225,13 +225,13 @@ export default function LabelActionModal({ isOpen, onClose, product, onConfirm }
                                 min="1"
                                 value={quantity}
                                 onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                                className="bg-transparent text-center text-xl font-semibold text-slate-50 outline-none w-20"
+                                className="bg-transparent text-center text-xl font-black text-white outline-none w-20"
                             />
 
                             <button 
                                 type="button"
                                 onClick={() => setQuantity(prev => prev + 1)}
-                                className="p-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg text-slate-400 hover:text-slate-50 transition-colors"
+                                className="p-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"
                             >
                                 <Plus size={14} />
                             </button>
@@ -243,13 +243,13 @@ export default function LabelActionModal({ isOpen, onClose, product, onConfirm }
                         <button 
                             type="button"
                             onClick={onClose}
-                            className="flex-1 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 rounded-xl text-xs font-semibold transition-all"
+                            className="flex-1 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 rounded-xl text-xs font-black uppercase transition-all"
                         >
                             Cancelar
                         </button>
                         <button 
                             type="submit"
-                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary-hover text-white rounded-xl text-xs font-semibold transition-all shadow-lg"
+                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-xs font-black uppercase transition-all shadow-lg shadow-emerald-500/10"
                         >
                             <Printer size={14} /> Confirmar & Imprimir
                         </button>
