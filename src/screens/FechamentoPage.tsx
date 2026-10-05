@@ -81,6 +81,7 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
                 }
 
                 const valor = Number(d.total) || 0;
+<<<<<<< Updated upstream
 
                 if (d.paymentMethod === "PIX") pix += valor;
                 else if (d.paymentMethod === "Cartão") cartao += valor;
@@ -90,6 +91,31 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
                 d.items?.forEach((it: any) => {
                     itemsMap[it.name] =
                         (itemsMap[it.name] || 0) + (it.quantity || 1);
+=======
+                if (d.status === "refunded" || d.status === "cancelled") return;
+
+                if (d.multiplePayments && d.multiplePayments.length > 0) {
+                    d.multiplePayments.forEach((p: any) => {
+                        const method = String(p.method || "").toUpperCase();
+                        const value = Number(p.value) || 0;
+
+                        if (method.includes("PIX")) pix += value;
+                        else if (method.includes("CART")) cartao += value;
+                        else if (method.includes("DINHEIRO")) din += value;
+                        else if (method.includes("FIADO")) fiado += value;
+                    });
+                } else {
+                    const method = String(d.paymentMethod || "").toUpperCase();
+
+                    if (method.includes("PIX")) pix += valor;
+                    else if (method.includes("CART")) cartao += valor;
+                    else if (method.includes("DINHEIRO")) din += valor;
+                    else if (method.includes("FIADO")) fiado += valor;
+                }
+
+                d.items?.forEach((it: any) => {
+                    itemsMap[it.name] = (itemsMap[it.name] || 0) + (Number(it.saleQty || it.quantity) || 1);
+>>>>>>> Stashed changes
                 });
             });
 
@@ -369,7 +395,8 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
                     <div className="text-right text-[10px] font-bold text-slate-500 uppercase">Abertura: {cashOpenedAt}</div>
                 </header>
 
-                <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                {/* Grid atualizado para comportar os novos cards separados de forma limpa */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
                     <div className="bg-slate-900/50 p-4 rounded-2xl border border-slate-800">
                         <p className="text-slate-500 text-[9px] font-black uppercase mb-1">Início</p>
                         <p className="text-blue-400 font-black text-lg">R$ {initialBalance.toFixed(2)}</p>
@@ -386,9 +413,13 @@ export default function FechamentoPage({ storeEmail }: { storeEmail: string }) {
                         <p className="text-slate-500 text-[9px] font-black uppercase mb-1">Saídas</p>
                         <p className="text-rose-500 font-black text-lg">R$ {totalOut.toFixed(2)}</p>
                     </div>
-                    <div className="bg-blue-600/10 p-4 rounded-2xl border border-blue-500/20 col-span-2 lg:col-span-1">
-                        <p className="text-blue-400 text-[9px] font-black uppercase mb-1">Pix + Cartão</p>
-                        <p className="text-white font-black text-lg">R$ {(summary.pix + summary.cartao).toFixed(2)}</p>
+                    <div className="bg-blue-600/10 p-4 rounded-2xl border border-blue-500/20">
+                        <p className="text-blue-400 text-[9px] font-black uppercase mb-1">Vendas Pix</p>
+                        <p className="text-white font-black text-lg">R$ {summary.pix.toFixed(2)}</p>
+                    </div>
+                    <div className="bg-blue-600/10 p-4 rounded-2xl border border-blue-500/20">
+                        <p className="text-blue-400 text-[9px] font-black uppercase mb-1">Vendas Cartão</p>
+                        <p className="text-white font-black text-lg">R$ {summary.cartao.toFixed(2)}</p>
                     </div>
                 </div>
 

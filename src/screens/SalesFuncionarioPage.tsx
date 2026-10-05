@@ -260,9 +260,11 @@ export default function SalesFuncionarioPage({ storeEmail }: Props) {
                     storeEmail={storeEmail}
                     onClose={() => {
                         setIsNewSaleModalOpen(false);
+                    }}
+                    onSaleComplete={() => {
+                        setIsNewSaleModalOpen(false);
                         fetchSales();
                     }}
-                    onSaleComplete={fetchSales}
                 />
             )}
 

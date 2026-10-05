@@ -41,7 +41,14 @@ interface UserInfo {
     permissions: string[];
 }
 
-// ==================== CONFIGURAÇÃO ====================
+// ==================== CONFIGURAÇÃO DE APRESENTAÇÃO ====================
+// Mude para "false" quando quiser usar o login real do Firebase novamente.
+const MODO_APRESENTACAO = true; 
+
+// Escolha qual papel simular na apresentação: "ADMIN" ou "FUNCIONARIO"
+const PERFIL_APRESENTACAO: "ADMIN" | "FUNCIONARIO" = "ADMIN"; 
+// ======================================================================
+
 const VALID_STORES = [
     "kluivert@solucell.com",
     "funcionarios@solucell.com",
@@ -94,6 +101,30 @@ function App() {
 
     // ==================== AUTENTICAÇÃO + PERMISSÕES ====================
     useEffect(() => {
+        // Se o modo apresentação estiver ativo, pula a verificação do Firebase
+        if (MODO_APRESENTACAO) {
+            if (PERFIL_APRESENTACAO === "ADMIN") {
+                setCurrentUser({
+                    email: "kluivert@solucell.com",
+                    storeEmail: "kluivert@solucell.com",
+                    role: "Administrador",
+                    permissions: ["dashboard", "products", "sales", "fiado", "fechamento", "maintenance", "reports", "settings"]
+                });
+                setCurrentPage("dashboard");
+            } else {
+                setCurrentUser({
+                    email: "funcionarios@solucell.com",
+                    storeEmail: "kluivert@solucell.com",
+                    role: "Funcionário",
+                    permissions: ["sales", "fiado", "fechamento", "maintenance", "settings"]
+                });
+                setCurrentPage("sales");
+            }
+            setIsLoggedIn(true);
+            return; // Interrompe o useEffect aqui
+        }
+
+        // Fluxo normal com Firebase
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             if (user && VALID_STORES.includes(user.email || "")) {
                 const storeEmail = STORE_MAPPING[user.email!] || user.email!;
@@ -120,10 +151,41 @@ function App() {
     }, []);
 
     const handleLogout = () => {
+        if (MODO_APRESENTACAO) {
+            setIsLoggedIn(false);
+            return;
+        }
         auth.signOut();
         setIsLoggedIn(false);
     };
 
+<<<<<<< Updated upstream
+=======
+    const handleMockLogin = () => {
+        // Permite "fazer login" novamente se você clicar em Sair durante a demo
+        if (PERFIL_APRESENTACAO === "ADMIN") {
+            setCurrentUser({
+                email: "kluivert@solucell.com",
+                storeEmail: "kluivert@solucell.com",
+                role: "Administrador",
+                permissions: ["dashboard", "products", "sales", "fiado", "fechamento", "maintenance", "reports", "settings"]
+            });
+            setCurrentPage("dashboard");
+        } else {
+            setCurrentUser({
+                email: "funcionarios@solucell.com",
+                storeEmail: "kluivert@solucell.com",
+                role: "Funcionário",
+                permissions: ["sales", "fiado", "fechamento", "maintenance", "settings"]
+            });
+            setCurrentPage("sales");
+        }
+        setIsLoggedIn(true);
+    };
+
+    const toggleTheme = () => document.documentElement.classList.toggle("dark");
+
+>>>>>>> Stashed changes
     const allNavigation = [
         { id: "dashboard", name: "Dashboard", icon: LayoutDashboard },
         { id: "products", name: "Produtos", icon: Package },
@@ -138,7 +200,18 @@ function App() {
     const navigation = allNavigation.filter(item => currentUser.permissions.includes(item.id));
 
     const renderPage = () => {
+<<<<<<< Updated upstream
         if (!isLoggedIn) return <LoginPage onLoginSuccess={() => {}} />;
+=======
+        if (!isLoggedIn) {
+            return (
+                <LoginPage 
+                    auth={auth} 
+                    onLoginSuccess={MODO_APRESENTACAO ? handleMockLogin : () => {}} 
+                />
+            );
+        }
+>>>>>>> Stashed changes
 
         switch (currentPage) {
             case "dashboard": return <Dashboard storeEmail={currentUser.storeEmail} />;
@@ -159,6 +232,7 @@ function App() {
     };
 
     return (
+<<<<<<< Updated upstream
         <div className="relative bg-[#F8FAFC] text-slate-700 flex w-full min-h-screen font-sans antialiased overflow-x-hidden">
 
             {/* DECORAÇÃO DE FUNDO LUMINOSA */}
@@ -170,6 +244,18 @@ function App() {
             )}
 
             {/* OVERLAY MOBILE */}
+=======
+        <div className="bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-slate-100 flex w-full min-h-screen font-sans antialiased">
+            
+            {/* Aviso discreto de Modo de Apresentação */}
+            {MODO_APRESENTACAO && isLoggedIn && (
+                <div className="fixed bottom-4 right-4 bg-emerald-500 text-slate-950 font-bold text-[10px] px-3 py-1.5 rounded-full shadow-lg z-50 animate-pulse uppercase tracking-wider">
+                    Modo Demo Ativo ({currentUser.role})
+                </div>
+            )}
+
+            {/* OVERLAY MOBILE: Fecha o menu ao clicar fora dele */}
+>>>>>>> Stashed changes
             {isLoggedIn && sidebarOpen && (
                 <div
                     className="fixed inset-0 bg-slate-900/30 backdrop-blur-sm z-40 md:hidden transition-opacity duration-300"

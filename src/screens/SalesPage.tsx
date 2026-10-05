@@ -7,7 +7,7 @@ import {
     Pencil, Clock, User, Wrench, Layers, Printer
 } from "lucide-react";
 
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, query, where, orderBy, Timestamp } from "firebase/firestore";
 import { db } from "../lib/firebase";
 
 import RefundConfirmationModal from "../components/RefundConfirmationModal";
@@ -63,12 +63,46 @@ export default function Sales({ storeEmail }: SalesProps) {
     const [barcodeInput, setBarcodeInput] = useState("");
     const barcodeRef = useRef<HTMLInputElement>(null);
 
+    const getDateRange = () => {
+    const start = new Date();
+    const end = new Date();
+
+    if (filter === "today") {
+        start.setHours(0, 0, 0, 0);
+        end.setHours(23, 59, 59, 999);
+    }
+
+    if (filter === "week") {
+        start.setDate(start.getDate() - 7);
+        start.setHours(0, 0, 0, 0);
+        end.setHours(23, 59, 59, 999);
+    }
+
+    if (filter === "month") {
+        start.setDate(1);
+        start.setHours(0, 0, 0, 0);
+        end.setMonth(end.getMonth() + 1);
+        end.setDate(0);
+        end.setHours(23, 59, 59, 999);
+    }
+
+    if (filter === "custom") {
+        const [year, month, day] = customDate.split("-").map(Number);
+        start.setFullYear(year, month - 1, day);
+        start.setHours(0, 0, 0, 0);
+
+        end.setFullYear(year, month - 1, day);
+        end.setHours(23, 59, 59, 999);
+    }
+
+    return { start, end };
+};
+
     useEffect(() => {
         const handleKeyPress = async (e: KeyboardEvent) => {
             if (e.key !== "Enter") return;
 
-            const code = barcodeInput.trim();
-
+            const code = barcodeRef.current?.value?.trim();
             if (!code) return;
 
             try {
@@ -82,13 +116,13 @@ export default function Sales({ storeEmail }: SalesProps) {
 
                 if (productsSnapshot.empty) {
                     alert("Produto não encontrado.");
-                    setBarcodeInput("");
+                    if (barcodeRef.current) barcodeRef.current.value = "";
                     return;
                 }
 
                 const product = {
                     id: productsSnapshot.docs[0].id,
-                    ...productsSnapshot.docs[0].data()
+                    ...productsSnapshot.docs[0].data(),
                 };
 
                 setIsNewSaleModal(true);
@@ -96,12 +130,12 @@ export default function Sales({ storeEmail }: SalesProps) {
                 setTimeout(() => {
                     window.dispatchEvent(
                         new CustomEvent("scanner-product", {
-                            detail: product
+                            detail: product,
                         })
                     );
                 }, 300);
 
-                setBarcodeInput("");
+                if (barcodeRef.current) barcodeRef.current.value = "";
             } catch (err) {
                 console.error(err);
             }
@@ -109,37 +143,34 @@ export default function Sales({ storeEmail }: SalesProps) {
 
         window.addEventListener("keydown", handleKeyPress);
 
-        return () =>
+        return () => {
             window.removeEventListener("keydown", handleKeyPress);
-    }, [barcodeInput, storeEmail]);
+        };
+    }, [storeEmail]);
 
     const [hideValues, setHideValues] = useState(false);
     const [sales, setSales] = useState<SaleWithClient[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [isLoading, setIsLoading] = useState(true);
 
+<<<<<<< Updated upstream
     const fetchSalesFromFirestore = useCallback(async () => {
         console.log("BUSCANDO VENDAS");
         setIsLoading(true);
         try {
             const q = query(collection(db, "sales"), where("store", "==", storeEmail));
             const snapshot = await getDocs(q);
+=======
+const fetchSalesFromFirestore = useCallback(async () => {
+>>>>>>> Stashed changes
 
-            const list: SaleWithClient[] = snapshot.docs.map((doc) => {
-                const data = doc.data() as any;
-                const ts = data.timestamp?.toDate();
+    console.log("🔥 BUSCANDO VENDAS", new Date().toLocaleTimeString());
+    
+    if (!storeEmail) return;
 
-                return {
-                    id: doc.id,
-                    dateObject: ts,
-                    date: ts ? ts.toLocaleDateString("pt-BR") : "--/--/----",
-                    time: ts ? ts.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "--:--",
-                    items: data.items || [],
-                    total: Number(data.total) || 0,
-                    payment: data.paymentMethod || "PIX",
-                    status: data.status || (data.paymentMethod === "Fiado" ? "pending" : "completed"),
-                    clientName: data.clientName || data.fiado?.nome || data.payments?.fiado?.nome,
+    setIsLoading(true);
 
+<<<<<<< Updated upstream
                     // Tratamento dos novos campos vindo do Firebase
                     type: data.type || "venda",
                     partCost: Number(data.partCost) || 0,
@@ -176,6 +207,48 @@ export default function Sales({ storeEmail }: SalesProps) {
             setIsLoading(false);
         }
     }, [storeEmail]);
+=======
+    try {
+        const { start, end } = getDateRange();
+
+        const q = query(
+            collection(db, "sales"),
+            where("store", "==", storeEmail),
+            where("timestamp", ">=", Timestamp.fromDate(start)),
+            where("timestamp", "<=", Timestamp.fromDate(end)),
+            orderBy("timestamp", "desc")
+        );
+
+        const snapshot = await getDocs(q);
+
+        const list: SaleWithClient[] = snapshot.docs.map((doc) => {
+            const data = doc.data() as any;
+            const ts = data.timestamp?.toDate();
+
+            return {
+                id: doc.id,
+                dateObject: ts,
+                date: ts ? ts.toLocaleDateString("pt-BR") : "--/--/----",
+                time: ts ? ts.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "--:--",
+                items: data.items || [],
+                total: Number(data.total) || 0,
+                payment: data.paymentMethod || "PIX",
+                status: data.status || (data.paymentMethod === "Fiado" ? "pending" : "completed"),
+                clientName: data.clientName || data.fiado?.nome || data.payments?.fiado?.nome,
+                type: data.type || "venda",
+                partCost: Number(data.partCost) || 0,
+                multiplePayments: data.multiplePayments || null,
+            };
+        });
+
+        setSales(list);
+    } catch (error) {
+        console.error("Erro ao buscar vendas:", error);
+    } finally {
+        setIsLoading(false);
+    }
+}, [storeEmail, filter, customDate]);
+>>>>>>> Stashed changes
 
     useEffect(() => {
         fetchSalesFromFirestore();
@@ -211,30 +284,7 @@ export default function Sales({ storeEmail }: SalesProps) {
     };
 
     // 1. Filtragem estrita por período/data
-    const filteredByPeriod = sales.filter(sale => {
-        if (!sale.dateObject) return false;
-        const now = new Date();
-        const saleDate = sale.dateObject;
-
-        if (filter === "today") return saleDate.toDateString() === now.toDateString();
-        if (filter === "week") {
-            const oneWeekAgo = new Date();
-            oneWeekAgo.setDate(now.getDate() - 7);
-            return saleDate >= oneWeekAgo;
-        }
-        if (filter === "month") {
-            return saleDate.getMonth() === now.getMonth() && saleDate.getFullYear() === now.getFullYear();
-        }
-        if (filter === "custom" && customDate) {
-            const [year, month, day] = customDate.split("-").map(Number);
-            return (
-                saleDate.getDate() === day &&
-                saleDate.getMonth() === month - 1 &&
-                saleDate.getFullYear() === year
-            );
-        }
-        return true;
-    });
+  const filteredByPeriod = sales;
 
     const isLoss = (sale: SaleWithClient) =>
         sale.status === "loss" || sale.type === "perda";
@@ -370,7 +420,10 @@ export default function Sales({ storeEmail }: SalesProps) {
                         setIsNewSaleModal(false);
                     }}
                     storeEmail={storeEmail}
-                    onSaleComplete={fetchSalesFromFirestore}
+                    onSaleComplete={() => {
+                        setIsNewSaleModal(false);
+                        fetchSalesFromFirestore();
+                    }}
                 />
             )}
 
@@ -421,12 +474,12 @@ export default function Sales({ storeEmail }: SalesProps) {
                 <input
                     ref={barcodeRef}
                     autoFocus
-                    value={barcodeInput}
-                    onChange={(e) => setBarcodeInput(e.target.value)}
+                    defaultValue=""
                     className="absolute opacity-0 pointer-events-none"
                     type="text"
                 />
 
+<<<<<<< Updated upstream
                 {/* LAYOUT PRINCIPAL: PAINEL LATERAL (EXTRATO) + LINHA DO TEMPO */}
                 <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6 items-start">
 
@@ -437,12 +490,88 @@ export default function Sales({ storeEmail }: SalesProps) {
                         <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm relative overflow-hidden">
                             <div className="absolute -right-6 -top-6 text-emerald-500/[0.06]">
                                 <TrendingUp size={110} />
+=======
+                {/* CARDS DE ESTATÍSTICAS CLICÁVEIS */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* CARD PIX */}
+                    <button
+                        onClick={() => handleCardClick("PIX")}
+                        className={`text-left p-5 rounded-xl border transition-all flex flex-col justify-between ${selectedMethodCard === "PIX"
+                            ? "bg-emerald-500/10 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+                            : "bg-slate-900/50 border-slate-800 hover:border-slate-700"
+                            }`}
+                    >
+                        <div>
+                            <div className="flex items-center gap-1.5 mb-2">
+                                <Smartphone className={selectedMethodCard === "PIX" ? "text-emerald-400" : "text-emerald-500"} size={14} />
+                                <p className="text-slate-500 text-[9px] font-black uppercase tracking-wider">PIX</p>
+                            </div>
+                            <p className="text-2xl font-black tracking-tight text-white">
+                                {hideValues ? "••••••" : `R$ ${stats.pix.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                            </p>
+                        </div>
+                    </button>
+
+                    {/* CARD CARTÃO */}
+                    <button
+                        onClick={() => handleCardClick("CARTAO")}
+                        className={`text-left p-5 rounded-xl border transition-all flex flex-col justify-between ${selectedMethodCard === "CARTAO"
+                            ? "bg-blue-500/10 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.1)]"
+                            : "bg-slate-900/50 border-slate-800 hover:border-slate-700"
+                            }`}
+                    >
+                        <div>
+                            <div className="flex items-center gap-1.5 mb-2">
+                                <CreditCard className={selectedMethodCard === "CARTAO" ? "text-blue-400" : "text-blue-500"} size={14} />
+                                <p className="text-slate-500 text-[9px] font-black uppercase tracking-wider">Cartão</p>
+                            </div>
+                            <p className="text-2xl font-black tracking-tight text-white">
+                                {hideValues ? "••••••" : `R$ ${stats.cartao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                            </p>
+                        </div>
+                    </button>
+
+                    {/* CARD DINHEIRO */}
+                    <button
+                        onClick={() => handleCardClick("DINHEIRO")}
+                        className={`text-left p-5 rounded-xl border transition-all flex flex-col justify-between ${selectedMethodCard === "DINHEIRO"
+                            ? "bg-amber-500/10 border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.1)]"
+                            : "bg-slate-900/50 border-slate-800 hover:border-slate-700"
+                            }`}
+                    >
+                        <div>
+                            <div className="flex items-center gap-1.5 mb-2">
+                                <DollarSign className={selectedMethodCard === "DINHEIRO" ? "text-amber-400" : "text-amber-500"} size={14} />
+                                <p className="text-slate-500 text-[9px] font-black uppercase tracking-wider">Dinheiro</p>
+>>>>>>> Stashed changes
                             </div>
 
+<<<<<<< Updated upstream
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 relative">
                                 {filter === "today" ? "Faturamento de Hoje" : filter === "week" ? "Faturamento da Semana" : filter === "month" ? "Faturamento do Mês" : "Faturamento do Período"}
                             </p>
                             <p className="text-4xl font-black tracking-tight text-slate-900 font-mono relative">
+=======
+                    {/* CARD FATURAMENTO TOTAL */}
+                    <button
+                        onClick={() => handleCardClick("TOTAL")}
+                        className={`text-left p-5 rounded-xl border transition-all flex flex-col justify-between relative overflow-hidden ${selectedMethodCard === "TOTAL"
+                            ? "bg-emerald-600/20 border-emerald-400"
+                            : "bg-emerald-600/10 border-emerald-500/20 hover:border-emerald-500/40"
+                            }`}
+                    >
+                        <div className="absolute right-4 top-4 text-emerald-500/5">
+                            <TrendingUp size={38} />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-1.5 mb-2">
+                                <TrendingUp className="text-emerald-400" size={14} />
+                                <p className="text-emerald-400 text-[9px] font-black uppercase tracking-wider">
+                                    {filter === "today" ? "Faturamento Dia" : filter === "week" ? "Faturamento Semana" : filter === "month" ? "Faturamento Mês" : "Faturamento Período"}
+                                </p>
+                            </div>
+                            <p className="text-2xl font-black tracking-tight text-emerald-400">
+>>>>>>> Stashed changes
                                 {hideValues ? "••••••" : `R$ ${stats.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                             </p>
 
@@ -493,8 +622,19 @@ export default function Sales({ storeEmail }: SalesProps) {
 
                             {/* PIX */}
                             <button
+<<<<<<< Updated upstream
                                 onClick={() => handleCardClick("PIX")}
                                 className={`w-full text-left rounded-xl p-2.5 transition-all ${selectedMethodCard === "PIX" ? "bg-emerald-50 ring-1 ring-emerald-300" : "hover:bg-slate-50"
+=======
+                                key={f}
+                                onClick={() => {
+                                    setFilter(f);
+                                    setSelectedMethodCard(null);
+                                }}
+                                className={`px-4 py-2.5 rounded-lg text-xs font-black transition-all ${filter === f
+                                    ? "bg-white text-slate-950"
+                                    : "text-slate-400 hover:text-slate-200"
+>>>>>>> Stashed changes
                                     }`}
                             >
                                 <div className="flex items-center justify-between mb-1.5">
@@ -551,10 +691,56 @@ export default function Sales({ storeEmail }: SalesProps) {
                                 </div>
                             </button>
 
+<<<<<<< Updated upstream
                             {selectedMethodCard && (
                                 <button
                                     onClick={() => setSelectedMethodCard(null)}
                                     className="w-full text-center mt-1 py-1.5 text-[9px] text-emerald-600 hover:text-emerald-700 uppercase font-black tracking-wider"
+=======
+                {/* AVISO DE FILTRO ATIVO NOS CARDS */}
+                {selectedMethodCard && (
+                    <div className="flex items-center justify-between bg-slate-900/40 border border-slate-800/80 px-4 py-2.5 rounded-xl text-xs text-slate-400">
+                        <span>
+                            Filtrando fluxo apenas por operações via: <strong className="text-white uppercase font-black">{selectedMethodCard}</strong>
+                        </span>
+                        <button
+                            onClick={() => setSelectedMethodCard(null)}
+                            className="text-[10px] text-emerald-500 hover:text-emerald-400 uppercase font-black tracking-wider"
+                        >
+                            [ Limpar Filtro ]
+                        </button>
+                    </div>
+                )}
+
+                {/* LISTA DE VENDAS REFINADA */}
+                <div className="space-y-3">
+                    {isLoading ? (
+                        <div className="py-20 text-center border border-slate-800 rounded-xl text-slate-600 font-bold animate-pulse uppercase text-[10px] tracking-widest">
+                            Sincronizando fluxo de caixa...
+                        </div>
+                    ) : finalFilteredSales.length === 0 ? (
+                        <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-16 text-center text-slate-500 font-bold text-sm">
+                            Nenhuma operação encontrada para os filtros aplicados.
+                        </div>
+                    ) : (
+                        finalFilteredSales.map((sale) => {
+                            const isRefunded = sale.status === "refunded";
+                            const isCancelled = sale.status === "cancelled";
+
+                            // Cálculos para Manutenção
+                            const partCost = sale.partCost || 0;
+                            const profit = sale.total - partCost;
+
+                            return (
+                                <div
+                                    key={sale.id}
+                                    className={`bg-slate-900/40 border rounded-xl p-5 hover:border-slate-700/50 transition-all ${isRefunded
+                                        ? "border-red-900/40 bg-red-950/5 opacity-80"
+                                        : isCancelled
+                                            ? "border-slate-800 bg-slate-950/30 opacity-60"
+                                            : "border-slate-800"
+                                        }`}
+>>>>>>> Stashed changes
                                 >
                                     [ Limpar Filtro ]
                                 </button>
