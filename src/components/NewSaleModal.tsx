@@ -94,41 +94,21 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({ onClose, storeEmail, onSale
     // Leitor de Código de Barras
     useEffect(() => {
         let barcodeBuffer = "";
-<<<<<<< Updated upstream
         let timeout: NodeJS.Timeout | null = null;
 
         const handleKeyDown = (e: KeyboardEvent) => {
             if ((e.target as HTMLElement)?.tagName === "TEXTAREA" || (e.target as HTMLElement)?.tagName === "INPUT") return;
-=======
-        let timeout: NodeJS.Timeout;
-
-        const handleKeyDown = (e: KeyboardEvent) => {
-            // Ignora se estiver digitando em textarea
-            if ((e.target as HTMLElement)?.tagName === "TEXTAREA") return;
->>>>>>> Stashed changes
 
             clearTimeout(timeout);
 
             if (e.key === "Enter") {
-<<<<<<< Updated upstream
                 const code = barcodeBuffer.trim();
                 if (code.length >= 4) {
                     const product = stock.find(p => String(p.barcode).trim() === code);
-=======
-                if (barcodeBuffer.length >= 4) {
-                    const product = stock.find(
-                        p => p.barcode === barcodeBuffer
-                    );
-
->>>>>>> Stashed changes
                     if (product) {
                         handleAddProduct(product, activeTab === "perda" ? "perda" : "venda");
                     }
                 }
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes
                 barcodeBuffer = "";
                 return;
             }
@@ -136,7 +116,6 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({ onClose, storeEmail, onSale
             if (/^[0-9A-Za-z]$/.test(e.key)) {
                 barcodeBuffer += e.key;
             }
-<<<<<<< Updated upstream
 
             timeout = setTimeout(() => {
                 barcodeBuffer = "";
@@ -176,22 +155,6 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({ onClose, storeEmail, onSale
     };
 
     // Carregar estoque inicial
-=======
-
-            timeout = setTimeout(() => {
-                barcodeBuffer = "";
-            }, 100);
-        };
-
-        window.addEventListener("keydown", handleKeyDown);
-
-        return () => {
-            window.removeEventListener("keydown", handleKeyDown);
-            clearTimeout(timeout);
-        };
-    }, [stock, activeTab]);
-
->>>>>>> Stashed changes
     useEffect(() => {
         const load = async () => {
             if (!storeEmail) return;
@@ -317,7 +280,6 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({ onClose, storeEmail, onSale
             // TRANSACTION - Baixa de estoque segura
             await runTransaction(db, async (transaction) => {
 
-<<<<<<< Updated upstream
                 const itemsToUpdate =
                     activeTab === "perda"
                         ? lossProducts
@@ -356,15 +318,6 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({ onClose, storeEmail, onSale
                         ref,
                         snap,
                         qty: item.saleQty
-=======
-            // Atualizar estoque
-            const itemsToUpdate = activeTab === 'perda' ? lossProducts : selectedProducts;
-            for (const item of itemsToUpdate) {
-                if (item.id && !item.id.includes("avulso")) {
-                    const productRef = doc(db, "products", item.id);
-                    await updateDoc(productRef, {
-                        stock: increment(-Number(item.saleQty || 0))
->>>>>>> Stashed changes
                     });
                 }
 

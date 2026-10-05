@@ -43,22 +43,12 @@ export default function DashboardPage({ storeEmail }: DashboardProps) {
 
     const fetchData = async () => {
       setLoading(true);
-
-      console.log("🔥 DASHBOARD CARREGANDO");
-
       try {
         const prodQuery = query(collection(db, "products"), where("store", "==", storeEmail));
         const prodSnap = await getDocs(prodQuery);
         setProducts(prodSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const salesQuery = query(
-          collection(db, "sales"),
-          where("store", "==", storeEmail),
-          where("timestamp", ">=", Timestamp.fromDate(today))
-        );
+        const salesQuery = query(collection(db, "sales"), where("store", "==", storeEmail));
         const salesSnap = await getDocs(salesQuery);
         setSales(salesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sale)));
       } catch (error) {
@@ -160,10 +150,11 @@ export default function DashboardPage({ storeEmail }: DashboardProps) {
                 <button
                   key={filter}
                   onClick={() => setActiveFilter(filter)}
-                  className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${activeFilter === filter
+                  className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                    activeFilter === filter
                       ? "bg-slate-800 text-white border border-slate-700 shadow-md"
                       : "bg-transparent text-slate-500 hover:text-slate-300"
-                    }`}
+                  }`}
                 >
                   {filter === 'today' ? 'Hoje' : filter === 'month' ? 'Mês' : 'Geral'}
                 </button>
@@ -186,7 +177,7 @@ export default function DashboardPage({ storeEmail }: DashboardProps) {
 
         {/* METRICS GRID */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-
+          
           {/* Card 01 - Receita */}
           <div className="bg-slate-900/30 border border-slate-900 p-5 rounded-2xl relative overflow-hidden">
             <div className="absolute right-4 top-4 text-emerald-500/20 bg-emerald-500/5 p-2 rounded-xl border border-emerald-500/10">
@@ -240,7 +231,7 @@ export default function DashboardPage({ storeEmail }: DashboardProps) {
 
         {/* WORKSPACE SECTIONS */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-
+          
           {/* TABELA CONTAS A RECEBER (ESQUERDA) */}
           <div className="xl:col-span-2 bg-slate-900/10 border border-slate-900 rounded-2xl overflow-hidden">
             <div className="p-5 border-b border-slate-900 flex justify-between items-center bg-slate-900/20">

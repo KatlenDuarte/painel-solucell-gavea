@@ -23,5 +23,5 @@
     "noImplicitAny": false,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "printer-server"]
+  "include": ["src"]
 }
