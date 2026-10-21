@@ -2,7 +2,13 @@
 
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore"; // ❗ Adicione o getFirestore
+import {
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  memoryLocalCache,
+  type Firestore,
+} from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBHFDpA0WlVOYga1eVoBsd90P_l8Pdnzzg",
@@ -18,4 +24,21 @@ const app = initializeApp(firebaseConfig);
 
 // Exporta os serviços
 export const auth = getAuth(app);
-export const db = getFirestore(app); // ❗ Exporta o Firestore (db)
+
+// Cache local persistente (IndexedDB): ao reabrir o painel, os listeners
+// retomam do cache e o servidor só cobra os documentos que mudaram.
+// Se o navegador não suportar IndexedDB (ex.: aba anônima em alguns
+// navegadores), usa cache em memória para nunca impedir o funcionamento.
+function createDb(): Firestore {
+  try {
+    if (typeof indexedDB === "undefined") throw new Error("IndexedDB indisponível");
+    return initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    });
+  } catch (error) {
+    console.warn("Cache persistente indisponível, usando memória:", error);
+    return initializeFirestore(app, { localCache: memoryLocalCache() });
+  }
+}
+
+export const db = createDb();
